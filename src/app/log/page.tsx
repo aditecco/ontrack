@@ -1,21 +1,50 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useTimeEntryStore } from '@/store/useTimeEntryStore'
-import { formatDateTime, formatTime } from '@/lib/utils'
-import { FileText, Trash2, Sparkles } from 'lucide-react'
+import { formatDateTime, formatTime, parseTimeInput } from '@/lib/utils'
+import { FileText, Trash2, Sparkles, Pencil, Check, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PageTransition } from '@/components/PageTransition'
+import toast from 'react-hot-toast'
 
 export default function LogPage() {
   const { tasks, fetchTasks } = useTaskStore()
-  const { timeEntries, fetchTimeEntries, deleteTimeEntry } = useTimeEntryStore()
+  const { timeEntries, fetchTimeEntries, updateTimeEntry, deleteTimeEntry } = useTimeEntryStore()
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null)
+  const [editingTimeInput, setEditingTimeInput] = useState('')
 
   useEffect(() => {
     fetchTasks()
     fetchTimeEntries()
   }, [fetchTasks, fetchTimeEntries])
+
+  function handleStartEdit(entryId: number, hours: number, minutes: number) {
+    setEditingEntryId(entryId)
+    setEditingTimeInput(formatTime(hours, minutes, false))
+  }
+
+  function handleCancelEdit() {
+    setEditingEntryId(null)
+    setEditingTimeInput('')
+  }
+
+  async function handleSaveEdit(entryId: number) {
+    const parsed = parseTimeInput(editingTimeInput)
+    if (!parsed) {
+      toast.error('Invalid time format')
+      return
+    }
+
+    await updateTimeEntry(entryId, {
+      hours: parsed.hours,
+      minutes: parsed.minutes,
+    })
+
+    setEditingEntryId(null)
+    setEditingTimeInput('')
+  }
 
   const enrichedEntries = useMemo(() => {
     return timeEntries.map(entry => {
@@ -94,23 +123,78 @@ export default function LogPage() {
                       <td className="px-6 py-4 text-muted-foreground">
                         {entry.customer}
                       </td>
-                      <td className="px-6 py-4 text-right font-mono font-bold">
-                        {formatTime(entry.hours, entry.minutes)}
+                      <td className="px-6 py-4 text-right">
+                        {editingEntryId === entry.id ? (
+                          <input
+                            type="text"
+                            value={editingTimeInput}
+                            onChange={(e) => setEditingTimeInput(e.target.value)}
+                            className="w-32 px-3 py-1.5 text-sm bg-background border border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono font-bold transition-all"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEdit(entry.id!)
+                              if (e.key === 'Escape') handleCancelEdit()
+                            }}
+                          />
+                        ) : (
+                          <div className="font-mono font-bold">
+                            {formatTime(entry.hours, entry.minutes)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-muted-foreground whitespace-nowrap">
                         {formatDateTime(entry.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => {
-                            if (confirm('Delete this time entry?')) {
-                              deleteTimeEntry(entry.id!)
-                            }
-                          }}
-                          className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors inline-flex"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          {editingEntryId === entry.id ? (
+                            <>
+                              <motion.button
+                                onClick={() => handleSaveEdit(entry.id!)}
+                                className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors inline-flex"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                title="Save changes"
+                              >
+                                <Check className="w-4 h-4" />
+                              </motion.button>
+                              <motion.button
+                                onClick={handleCancelEdit}
+                                className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors inline-flex"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                title="Cancel"
+                              >
+                                <X className="w-4 h-4" />
+                              </motion.button>
+                            </>
+                          ) : (
+                            <>
+                              <motion.button
+                                onClick={() => handleStartEdit(entry.id!, entry.hours, entry.minutes)}
+                                className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors inline-flex"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                title="Edit time"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </motion.button>
+                              <motion.button
+                                onClick={() => {
+                                  if (confirm('Delete this time entry?')) {
+                                    deleteTimeEntry(entry.id!)
+                                  }
+                                }}
+                                className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors inline-flex"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                title="Delete entry"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </motion.button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

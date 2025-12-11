@@ -7,6 +7,7 @@ type TimeEntryStore = {
   isLoading: boolean
   fetchTimeEntries: () => Promise<void>
   addTimeEntry: (entry: Omit<TimeEntry, 'id' | 'createdAt'>) => Promise<void>
+  updateTimeEntry: (id: number, entry: Partial<Omit<TimeEntry, 'id' | 'createdAt'>>) => Promise<void>
   deleteTimeEntry: (id: number) => Promise<void>
   getEntriesByTask: (taskId: number) => TimeEntry[]
   getEntriesByDate: (date: string) => TimeEntry[]
@@ -40,6 +41,17 @@ export const useTimeEntryStore = create<TimeEntryStore>((set, get) => ({
       toast.success('Time entry added successfully')
     } catch (error) {
       toast.error('Failed to add time entry')
+      console.error(error)
+    }
+  },
+
+  updateTimeEntry: async (id, updates) => {
+    try {
+      await db.timeEntries.update(id, updates)
+      await get().fetchTimeEntries()
+      toast.success('Time entry updated successfully')
+    } catch (error) {
+      toast.error('Failed to update time entry')
       console.error(error)
     }
   },

@@ -4,10 +4,11 @@ import { useEffect, useState, useMemo } from 'react'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useTimeEntryStore } from '@/store/useTimeEntryStore'
 import { getDateString, formatDate, parseTimeInput, formatTime } from '@/lib/utils'
-import { Plus, X, Clock, Calendar, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, X, Clock, Calendar, Sparkles, ChevronLeft, ChevronRight, Pencil, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PageTransition } from '@/components/PageTransition'
 import { db } from '@/lib/db'
+import toast from 'react-hot-toast'
 
 type DailyEntry = {
   taskId: number
@@ -19,7 +20,7 @@ type DailyEntry = {
 
 export default function TrackPage() {
   const { tasks, fetchTasks } = useTaskStore()
-  const { addTimeEntry, fetchTimeEntries, timeEntries } = useTimeEntryStore()
+  const { addTimeEntry, updateTimeEntry, fetchTimeEntries, timeEntries } = useTimeEntryStore()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -27,6 +28,8 @@ export default function TrackPage() {
   const [useDecimal, setUseDecimal] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [dayNotes, setDayNotes] = useState('')
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null)
+  const [editingTimeInput, setEditingTimeInput] = useState('')
 
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
@@ -151,6 +154,32 @@ export default function TrackPage() {
 
     setDailyEntries([])
     await fetchTimeEntries()
+  }
+
+  function handleStartEdit(entryId: number, hours: number, minutes: number) {
+    setEditingEntryId(entryId)
+    setEditingTimeInput(formatTime(hours, minutes, false))
+  }
+
+  function handleCancelEdit() {
+    setEditingEntryId(null)
+    setEditingTimeInput('')
+  }
+
+  async function handleSaveEdit(entryId: number) {
+    const parsed = parseTimeInput(editingTimeInput)
+    if (!parsed) {
+      toast.error('Invalid time format')
+      return
+    }
+
+    await updateTimeEntry(entryId, {
+      hours: parsed.hours,
+      minutes: parsed.minutes,
+    })
+
+    setEditingEntryId(null)
+    setEditingTimeInput('')
   }
 
   const totalMinutes = dailyEntries.reduce((sum, e) => {
@@ -307,8 +336,8 @@ export default function TrackPage() {
 
             <AnimatePresence>
             {existingEntries.map((entry, index) => (
-              <motion.div 
-                key={entry.id} 
+              <motion.div
+                key={entry.id}
                 className="flex items-center gap-3 p-3 bg-accent/30 border border-border rounded-lg"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -318,9 +347,54 @@ export default function TrackPage() {
                 <div className="flex-1">
                   <div className="font-medium text-sm">{entry.taskName}</div>
                 </div>
-                <div className="text-base font-bold font-mono">
-                  {formatTime(entry.hours, entry.minutes, useDecimal)}
-                </div>
+                {editingEntryId === entry.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={editingTimeInput}
+                      onChange={(e) => setEditingTimeInput(e.target.value)}
+                      className="w-48 px-3 py-2 text-base bg-background border border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono font-semibold transition-all"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveEdit(entry.id!)
+                        if (e.key === 'Escape') handleCancelEdit()
+                      }}
+                    />
+                    <motion.button
+                      onClick={() => handleSaveEdit(entry.id!)}
+                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      title="Save changes"
+                    >
+                      <Check className="w-4 h-4" />
+                    </motion.button>
+                    <motion.button
+                      onClick={handleCancelEdit}
+                      className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      title="Cancel"
+                    >
+                      <X className="w-4 h-4" />
+                    </motion.button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-base font-bold font-mono">
+                      {formatTime(entry.hours, entry.minutes, useDecimal)}
+                    </div>
+                    <motion.button
+                      onClick={() => handleStartEdit(entry.id!, entry.hours, entry.minutes)}
+                      className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      title="Edit time"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </motion.button>
+                  </>
+                )}
               </motion.div>
             ))}
             </AnimatePresence>
