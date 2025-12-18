@@ -13,8 +13,22 @@ export interface Task {
   estimationStatus?: EstimationStatus;
   estimationReason?: string;
   isSelfReportedEstimate?: boolean;
+  description?: string;
+  link?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Tag {
+  id?: number;
+  name: string;
+  createdAt: Date;
+}
+
+export interface TaskTag {
+  id?: number;
+  taskId: number;
+  tagId: number;
 }
 
 export interface TimeEntry {
@@ -39,6 +53,8 @@ export class OnTrackDB extends Dexie {
   tasks!: Table<Task>;
   timeEntries!: Table<TimeEntry>;
   dayNotes!: Table<DayNote>;
+  tags!: Table<Tag>;
+  taskTags!: Table<TaskTag>;
 
   constructor() {
     super("ontrack");
@@ -61,6 +77,14 @@ export class OnTrackDB extends Dexie {
         "++id, name, customer, status, estimationStatus, isSelfReportedEstimate, createdAt",
       timeEntries: "++id, taskId, date, createdAt",
       dayNotes: "++id, &date, createdAt",
+    });
+    this.version(5).stores({
+      tasks:
+        "++id, name, customer, status, estimationStatus, isSelfReportedEstimate, createdAt",
+      timeEntries: "++id, taskId, date, createdAt",
+      dayNotes: "++id, &date, createdAt",
+      tags: "++id, &name, createdAt",
+      taskTags: "++id, taskId, tagId, [taskId+tagId]",
     });
   }
 }
