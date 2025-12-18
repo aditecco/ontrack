@@ -373,9 +373,9 @@ export default function TasksPage() {
                   animate={{ opacity: 1, y: 0 }}
                 >
                   <h2 className="text-xl font-bold mb-4">Info</h2>
-                  <div className="space-y-4">
+                  <div className="flex gap-6">
                     {selectedTask.description && (
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-muted-foreground mb-1">
                           Description
                         </div>
@@ -384,37 +384,41 @@ export default function TasksPage() {
                         </p>
                       </div>
                     )}
-                    {selectedTask.link && (
-                      <div>
-                        <div className="text-sm font-medium text-muted-foreground mb-1">
-                          Link
-                        </div>
-                        <a
-                          href={selectedTask.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          {selectedTask.link}
-                        </a>
-                      </div>
-                    )}
-                    {selectedTaskTags.length > 0 && (
-                      <div>
-                        <div className="text-sm font-medium text-muted-foreground mb-2">
-                          Tags
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedTaskTags.map((tag) => (
-                            <span
-                              key={tag.id}
-                              className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                    {(selectedTask.link || selectedTaskTags.length > 0) && (
+                      <div className="w-64 flex-shrink-0 space-y-4 border-l border-border pl-6">
+                        {selectedTask.link && (
+                          <div>
+                            <div className="text-sm font-medium text-muted-foreground mb-1">
+                              Link
+                            </div>
+                            <a
+                              href={selectedTask.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
                             >
-                              {tag.name}
-                            </span>
-                          ))}
-                        </div>
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                              {selectedTask.link}
+                            </a>
+                          </div>
+                        )}
+                        {selectedTaskTags.length > 0 && (
+                          <div>
+                            <div className="text-sm font-medium text-muted-foreground mb-2">
+                              Tags
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedTaskTags.map((tag) => (
+                                <span
+                                  key={tag.id}
+                                  className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                                >
+                                  {tag.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
