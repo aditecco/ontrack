@@ -17,6 +17,10 @@ import {
   Edit,
   Download,
   AlertTriangle,
+  Link as LinkIcon,
+  Tag as TagIcon,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import {
   BarChart,
@@ -32,18 +36,21 @@ import {
   Legend,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Task } from "@/lib/db";
+import type { Task, Tag } from "@/lib/db";
 import { PageTransition } from "@/components/PageTransition";
 import toast from "react-hot-toast";
 
 export default function TasksPage() {
   const {
     tasks,
+    tags,
     fetchTasks,
+    fetchTags,
     setSelectedTask,
     selectedTaskId,
     deleteTask,
     updateTask,
+    getTaskTags,
   } = useTaskStore();
   const { timeEntries, fetchTimeEntries } = useTimeEntryStore();
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,11 +59,21 @@ export default function TasksPage() {
   const [pendingEstimationStatus, setPendingEstimationStatus] = useState<
     "underestimated" | "overestimated" | ""
   >("");
+  const [selectedTaskTags, setSelectedTaskTags] = useState<Tag[]>([]);
 
   useEffect(() => {
     fetchTasks();
+    fetchTags();
     fetchTimeEntries();
-  }, [fetchTasks, fetchTimeEntries]);
+  }, [fetchTasks, fetchTags, fetchTimeEntries]);
+
+  useEffect(() => {
+    if (selectedTaskId) {
+      getTaskTags(selectedTaskId).then(setSelectedTaskTags);
+    } else {
+      setSelectedTaskTags([]);
+    }
+  }, [selectedTaskId, getTaskTags]);
 
   const filteredTasks = tasks.filter(
     (task) =>
@@ -349,6 +366,65 @@ export default function TasksPage() {
                 </div>
               </div>
 
+              {(selectedTask.description || selectedTask.link || selectedTaskTags.length > 0) && (
+                <motion.div
+                  className="bg-card border border-border rounded-lg p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <h2 className="text-xl font-bold mb-4">Info</h2>
+                  <div className="flex gap-6">
+                    {selectedTask.description && (
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-muted-foreground mb-1">
+                          Description
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {selectedTask.description}
+                        </p>
+                      </div>
+                    )}
+                    {(selectedTask.link || selectedTaskTags.length > 0) && (
+                      <div className="w-64 flex-shrink-0 space-y-4 border-l border-border pl-6">
+                        {selectedTask.link && (
+                          <div>
+                            <div className="text-sm font-medium text-muted-foreground mb-1">
+                              Link
+                            </div>
+                            <a
+                              href={selectedTask.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
+                            >
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                              {selectedTask.link}
+                            </a>
+                          </div>
+                        )}
+                        {selectedTaskTags.length > 0 && (
+                          <div>
+                            <div className="text-sm font-medium text-muted-foreground mb-2">
+                              Tags
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedTaskTags.map((tag) => (
+                                <span
+                                  key={tag.id}
+                                  className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                                >
+                                  {tag.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="text-xl font-bold mb-4">
                   Daily Time Distribution
@@ -452,7 +528,7 @@ export default function TasksPage() {
 
         <AnimatePresence>
           {showCreateModal && (
-            <CreateTaskModal onClose={() => setShowCreateModal(false)} />
+            <CreateTaskModal onClose={() => setShowCreateModal(false)} availableTags={tags} />
           )}
           {showEstimationModal && pendingEstimationStatus && (
             <EstimationStatusModal
@@ -467,8 +543,8 @@ export default function TasksPage() {
   );
 }
 
-function CreateTaskModal({ onClose }: { onClose: () => void }) {
-  const { addTask, tasks } = useTaskStore();
+function CreateTaskModal({ onClose, availableTags }: { onClose: () => void; availableTags: Tag[] }) {
+  const { addTask, addTag, tasks } = useTaskStore();
   const [formData, setFormData] = useState({
     name: "",
     customer: "",
@@ -476,8 +552,13 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
     budget: "",
     status: "active" as const,
     isSelfReportedEstimate: false,
+    description: "",
+    link: "",
   });
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
 
   const uniqueCustomers = useMemo(() => {
     const customers = tasks.map((t) => t.customer);
@@ -491,6 +572,28 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
     );
   }, [formData.customer, uniqueCustomers]);
 
+  const filteredTags = useMemo(() => {
+    const unselectedTags = availableTags.filter(t => !selectedTagIds.includes(t.id!));
+    if (!newTagInput) return unselectedTags;
+    return unselectedTags.filter((t) =>
+      t.name.toLowerCase().includes(newTagInput.toLowerCase()),
+    );
+  }, [newTagInput, availableTags, selectedTagIds]);
+
+  const selectedTags = useMemo(() => {
+    return availableTags.filter(t => selectedTagIds.includes(t.id!));
+  }, [availableTags, selectedTagIds]);
+
+  async function handleAddTag() {
+    if (!newTagInput.trim()) return;
+    const tagId = await addTag(newTagInput.trim());
+    if (tagId && !selectedTagIds.includes(tagId)) {
+      setSelectedTagIds([...selectedTagIds, tagId]);
+    }
+    setNewTagInput("");
+    setShowTagSuggestions(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     await addTask({
@@ -500,7 +603,9 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
       budget: formData.budget ? parseFloat(formData.budget) : undefined,
       status: formData.status,
       isSelfReportedEstimate: formData.isSelfReportedEstimate,
-    });
+      description: formData.description || undefined,
+      link: formData.link || undefined,
+    }, selectedTagIds);
     onClose();
   }
 
@@ -513,7 +618,7 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <motion.div
-        className="bg-card border border-border rounded-lg p-6 w-full max-w-md"
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
@@ -605,6 +710,108 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
               }
               className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Description (optional)
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              rows={3}
+              placeholder="Add task description..."
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Link (optional)
+            </label>
+            <input
+              type="url"
+              value={formData.link}
+              onChange={(e) =>
+                setFormData({ ...formData, link: e.target.value })
+              }
+              placeholder="https://..."
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <div className="relative">
+            <label className="block text-sm font-medium mb-2">
+              Tags (optional)
+            </label>
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedTags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                  >
+                    {tag.name}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTagIds(selectedTagIds.filter(id => id !== tag.id))}
+                      className="hover:text-primary/70"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onFocus={() => setShowTagSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddTag();
+                  }
+                }}
+                placeholder="Type to search or create tag..."
+                className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={handleAddTag}
+                disabled={!newTagInput.trim()}
+                className="px-4 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
+            {showTagSuggestions && filteredTags.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-32 overflow-auto scrollbar-thin"
+              >
+                {filteredTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTagIds([...selectedTagIds, tag.id!]);
+                      setNewTagInput("");
+                      setShowTagSuggestions(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-accent transition-colors border-b border-border last:border-0"
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </motion.div>
+            )}
           </div>
 
           <div className="flex items-center justify-between p-3 bg-accent/30 rounded-lg border border-border">
