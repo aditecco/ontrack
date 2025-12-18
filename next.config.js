@@ -3,7 +3,14 @@ const { execSync } = require('child_process')
 const packageJson = require('./package.json')
 
 // Get commit hash at build time
+// Prefer Vercel's environment variable, fallback to git command for local dev
 const getCommitHash = () => {
+  // Check for Vercel's Git commit SHA (first 7 chars to match git short hash)
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    return process.env.VERCEL_GIT_COMMIT_SHA.substring(0, 7)
+  }
+
+  // Fallback to git command for local development
   try {
     return execSync('git rev-parse --short HEAD').toString().trim()
   } catch (error) {
