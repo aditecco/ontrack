@@ -301,19 +301,7 @@ export default function TasksPage() {
                 </div>
               </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="text-sm text-muted-foreground mb-1">
-                    Time Spent
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {formatTime(taskStats.totalHours, taskStats.totalMins)}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {taskStats.decimalHours.toFixed(2)}h decimal
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div
                   className={cn(
                     "bg-card border rounded-lg p-4",
@@ -322,33 +310,83 @@ export default function TasksPage() {
                       : "border-border",
                   )}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="text-sm text-muted-foreground">
-                      Estimated
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* Time Spent Column */}
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">
+                        Time Spent
+                      </div>
+                      <div className="text-2xl font-bold">
+                        {formatTime(taskStats.totalHours, taskStats.totalMins)}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {taskStats.decimalHours.toFixed(2)}h decimal
+                      </div>
                     </div>
-                    {selectedTask.isSelfReportedEstimate && (
-                      <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
-                        self-reported
-                      </span>
-                    )}
-                    {taskStats.remaining < 0 && (
-                      <AlertTriangle className="w-4 h-4 text-destructive" />
-                    )}
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {selectedTask.estimatedHours}h
-                  </div>
-                  <div
-                    className={cn(
-                      "text-xs mt-1",
-                      taskStats.remaining < 0
-                        ? "text-destructive font-medium"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {taskStats.remaining >= 0
-                      ? `${taskStats.remaining.toFixed(1)}h remaining`
-                      : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
+
+                    {/* Estimated Column */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-sm text-muted-foreground">
+                          Estimated
+                        </div>
+                        {selectedTask.isSelfReportedEstimate && (
+                          <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
+                            self-reported
+                          </span>
+                        )}
+                        {taskStats.remaining < 0 && (
+                          <AlertTriangle className="w-4 h-4 text-destructive" />
+                        )}
+                      </div>
+                      <div className="text-2xl font-bold">
+                        {selectedTask.estimatedHours}h
+                      </div>
+                      <div
+                        className={cn(
+                          "text-xs mt-1",
+                          taskStats.remaining < 0
+                            ? "text-destructive font-medium"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {taskStats.remaining >= 0
+                          ? `${taskStats.remaining.toFixed(1)}h remaining`
+                          : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
+                      </div>
+                    </div>
+
+                    {/* Pie Chart Column */}
+                    <div className="flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height={100}>
+                        <PieChart>
+                          <Pie
+                            data={[
+                              {
+                                name: "Spent",
+                                value: taskStats.decimalHours,
+                                fill: taskStats.remaining < 0 ? "#ef4444" : "#3b82f6",
+                              },
+                              {
+                                name: "Remaining",
+                                value: Math.max(0, taskStats.remaining),
+                                fill: "#94a3b8",
+                              },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={25}
+                            outerRadius={40}
+                            paddingAngle={2}
+                            dataKey="value"
+                          >
+                            {taskStats.remaining < 0 && (
+                              <Cell key="over" fill="#ef4444" />
+                            )}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
 
