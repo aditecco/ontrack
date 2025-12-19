@@ -6,6 +6,7 @@ import { Home, Clock, ListTodo, FileText, Settings, Zap, Sun, Moon } from 'lucid
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { VersionInfo } from './VersionInfo'
 
 const routes = [
   {
@@ -104,7 +105,7 @@ export function Navigation() {
       </div>
 
       <div className="p-4 border-t border-border text-xs text-muted-foreground">
-        <p>All data stored locally</p>
+        <VersionInfo />
       </div>
 
       <div className="p-4 border-t border-border">
