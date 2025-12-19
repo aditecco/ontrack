@@ -21,6 +21,7 @@ import {
   Tag as TagIcon,
   X,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import {
   BarChart,
@@ -60,6 +61,7 @@ export default function TasksPage() {
     "underestimated" | "overestimated" | ""
   >("");
   const [selectedTaskTags, setSelectedTaskTags] = useState<Tag[]>([]);
+  const [showEditMetadataModal, setShowEditMetadataModal] = useState(false);
 
   useEffect(() => {
     fetchTasks();
@@ -366,64 +368,87 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              {(selectedTask.description || selectedTask.link || selectedTaskTags.length > 0) && (
-                <motion.div
+              <motion.div
                   className="bg-card border border-border rounded-lg p-6"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
-                  <h2 className="text-xl font-bold mb-4">Info</h2>
-                  <div className="flex gap-6">
-                    {selectedTask.description && (
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-muted-foreground mb-1">
-                          Description
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap">
-                          {selectedTask.description}
-                        </p>
-                      </div>
-                    )}
-                    {(selectedTask.link || selectedTaskTags.length > 0) && (
-                      <div className="w-64 flex-shrink-0 space-y-4 border-l border-border pl-6">
-                        {selectedTask.link && (
-                          <div>
-                            <div className="text-sm font-medium text-muted-foreground mb-1">
-                              Link
-                            </div>
-                            <a
-                              href={selectedTask.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
-                            >
-                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                              {selectedTask.link}
-                            </a>
-                          </div>
-                        )}
-                        {selectedTaskTags.length > 0 && (
-                          <div>
-                            <div className="text-sm font-medium text-muted-foreground mb-2">
-                              Tags
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedTaskTags.map((tag) => (
-                                <span
-                                  key={tag.id}
-                                  className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
-                                >
-                                  {tag.name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold">Info</h2>
+                    {(selectedTask.description || selectedTask.link || selectedTaskTags.length > 0) && (
+                      <button
+                        onClick={() => setShowEditMetadataModal(true)}
+                        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
                     )}
                   </div>
+                  {(selectedTask.description || selectedTask.link || selectedTaskTags.length > 0) ? (
+                    <div className="flex gap-6">
+                      {selectedTask.description && (
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-muted-foreground mb-1">
+                            Description
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">
+                            {selectedTask.description}
+                          </p>
+                        </div>
+                      )}
+                      {(selectedTask.link || selectedTaskTags.length > 0) && (
+                        <div className="w-64 flex-shrink-0 space-y-4 border-l border-border pl-6">
+                          {selectedTask.link && (
+                            <div>
+                              <div className="text-sm font-medium text-muted-foreground mb-1">
+                                Link
+                              </div>
+                              <a
+                                href={selectedTask.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
+                              >
+                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                {selectedTask.link}
+                              </a>
+                            </div>
+                          )}
+                          {selectedTaskTags.length > 0 && (
+                            <div>
+                              <div className="text-sm font-medium text-muted-foreground mb-2">
+                                Tags
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {selectedTaskTags.map((tag) => (
+                                  <span
+                                    key={tag.id}
+                                    className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                                  >
+                                    {tag.name}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        No additional info yet
+                      </p>
+                      <button
+                        onClick={() => setShowEditMetadataModal(true)}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Add description, link, or tags
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
-              )}
 
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="text-xl font-bold mb-4">
@@ -535,6 +560,22 @@ export default function TasksPage() {
               estimationStatus={pendingEstimationStatus}
               onClose={handleEstimationModalCancel}
               onSubmit={handleEstimationModalSubmit}
+            />
+          )}
+          {showEditMetadataModal && selectedTask && (
+            <EditTaskMetadataModal
+              task={selectedTask}
+              taskTags={selectedTaskTags}
+              availableTags={tags}
+              onClose={() => setShowEditMetadataModal(false)}
+              onSave={async () => {
+                await fetchTasks();
+                if (selectedTaskId) {
+                  const updatedTags = await getTaskTags(selectedTaskId);
+                  setSelectedTaskTags(updatedTags);
+                }
+                setShowEditMetadataModal(false);
+              }}
             />
           )}
         </AnimatePresence>
@@ -915,6 +956,205 @@ function EstimationStatusModal({
               rows={4}
               className="w-full px-4 mt-8 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg font-medium hover:opacity-90 transition-opacity"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function EditTaskMetadataModal({
+  task,
+  taskTags,
+  availableTags,
+  onClose,
+  onSave,
+}: {
+  task: Task;
+  taskTags: Tag[];
+  availableTags: Tag[];
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const { updateTask, addTag, setTaskTags } = useTaskStore();
+  const [formData, setFormData] = useState({
+    description: task.description || "",
+    link: task.link || "",
+  });
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(
+    taskTags.map((t) => t.id!)
+  );
+  const [newTagInput, setNewTagInput] = useState("");
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+
+  const filteredTags = useMemo(() => {
+    const unselectedTags = availableTags.filter(
+      (t) => !selectedTagIds.includes(t.id!)
+    );
+    if (!newTagInput) return unselectedTags;
+    return unselectedTags.filter((t) =>
+      t.name.toLowerCase().includes(newTagInput.toLowerCase())
+    );
+  }, [newTagInput, availableTags, selectedTagIds]);
+
+  const selectedTags = useMemo(() => {
+    return availableTags.filter((t) => selectedTagIds.includes(t.id!));
+  }, [availableTags, selectedTagIds]);
+
+  async function handleAddTag() {
+    if (!newTagInput.trim()) return;
+    const tagId = await addTag(newTagInput.trim());
+    if (tagId && !selectedTagIds.includes(tagId)) {
+      setSelectedTagIds([...selectedTagIds, tagId]);
+    }
+    setNewTagInput("");
+    setShowTagSuggestions(false);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await updateTask(task.id!, {
+      description: formData.description || undefined,
+      link: formData.link || undefined,
+    });
+    await setTaskTags(task.id!, selectedTagIds);
+    onSave();
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-2xl font-bold mb-4">Edit Task Info</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              rows={4}
+              placeholder="Add task description..."
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Link</label>
+            <input
+              type="url"
+              value={formData.link}
+              onChange={(e) =>
+                setFormData({ ...formData, link: e.target.value })
+              }
+              placeholder="https://..."
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <div className="relative">
+            <label className="block text-sm font-medium mb-2">Tags</label>
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedTags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                  >
+                    {tag.name}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedTagIds(
+                          selectedTagIds.filter((id) => id !== tag.id)
+                        )
+                      }
+                      className="hover:text-primary/70"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onFocus={() => setShowTagSuggestions(true)}
+                onBlur={() =>
+                  setTimeout(() => setShowTagSuggestions(false), 200)
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddTag();
+                  }
+                }}
+                placeholder="Type to search or create tag..."
+                className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={handleAddTag}
+                disabled={!newTagInput.trim()}
+                className="px-4 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+            </div>
+            {showTagSuggestions && filteredTags.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-32 overflow-auto scrollbar-thin"
+              >
+                {filteredTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTagIds([...selectedTagIds, tag.id!]);
+                      setNewTagInput("");
+                      setShowTagSuggestions(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-accent transition-colors border-b border-border last:border-0"
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </motion.div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
