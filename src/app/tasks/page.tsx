@@ -310,102 +310,102 @@ export default function TasksPage() {
                       : "border-border",
                   )}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="text-sm text-muted-foreground">
-                      Estimated
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-sm text-muted-foreground">
+                          Estimated
+                        </div>
+                        {selectedTask.isSelfReportedEstimate && (
+                          <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
+                            self-reported
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-2xl font-bold">
+                        {selectedTask.estimatedHours}h
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {taskStats.remaining >= 0
+                          ? `${taskStats.remaining.toFixed(1)}h remaining`
+                          : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
+                      </div>
                     </div>
-                    {selectedTask.isSelfReportedEstimate && (
-                      <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
-                        self-reported
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {selectedTask.estimatedHours}h
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {taskStats.remaining >= 0
-                      ? `${taskStats.remaining.toFixed(1)}h remaining`
-                      : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">
+                        Time Spent
+                      </div>
+                      <div className="text-2xl font-bold">
+                        {formatTime(taskStats.totalHours, taskStats.totalMins)}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {taskStats.decimalHours.toFixed(2)}h decimal
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-card border border-border rounded-lg p-4">
                   <div className="text-sm text-muted-foreground mb-1">
-                    Time Spent
+                    Budget
                   </div>
                   <div className="text-2xl font-bold">
-                    {formatTime(taskStats.totalHours, taskStats.totalMins)}
+                    {selectedTask.budget
+                      ? formatCurrency(selectedTask.budget)
+                      : "N/A"}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    {taskStats.decimalHours.toFixed(2)}h decimal
+                    {taskStats.entryCount}{" "}
+                    {taskStats.entryCount === 1 ? "Entry" : "Entries"}
                   </div>
                 </div>
 
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-6">
-                    <div className="flex-1">
-                      <div className="text-sm text-muted-foreground mb-1">
-                        Budget
+                  <div className="text-sm text-muted-foreground mb-3">
+                    Consumption
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
+                        <span className="text-xs text-muted-foreground">Estimated</span>
                       </div>
-                      <div className="text-2xl font-bold">
-                        {selectedTask.budget
-                          ? formatCurrency(selectedTask.budget)
-                          : "N/A"}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {taskStats.entryCount}{" "}
-                        {taskStats.entryCount === 1 ? "Entry" : "Entries"}
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-2.5 h-2.5 rounded-full",
+                          taskStats.remaining < 0 ? "bg-red-500" : "bg-green-500"
+                        )}></div>
+                        <span className="text-xs text-muted-foreground">Spent</span>
                       </div>
                     </div>
-                    <div className="flex-shrink-0">
-                      <div className="text-sm text-muted-foreground mb-2">
-                        Consumption
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
-                            <span className="text-xs text-muted-foreground">Estimated</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className={cn(
-                              "w-2.5 h-2.5 rounded-full",
-                              taskStats.remaining < 0 ? "bg-red-500" : "bg-green-500"
-                            )}></div>
-                            <span className="text-xs text-muted-foreground">Spent</span>
-                          </div>
-                        </div>
-                        <div className="w-20 h-20">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  {
-                                    name: "Spent",
-                                    value: taskStats.decimalHours,
-                                  },
-                                  {
-                                    name: "Remaining",
-                                    value: Math.max(0, taskStats.remaining),
-                                  },
-                                ]}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={22}
-                                outerRadius={38}
-                                dataKey="value"
-                                startAngle={90}
-                                endAngle={-270}
-                                stroke="none"
-                              >
-                                <Cell fill={taskStats.remaining < 0 ? "#ef4444" : "#22c55e"} />
-                                <Cell fill="#475569" />
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
+                    <div className="w-24 h-24 flex-shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              {
+                                name: "Spent",
+                                value: taskStats.decimalHours,
+                              },
+                              {
+                                name: "Remaining",
+                                value: Math.max(0, taskStats.remaining),
+                              },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={32}
+                            outerRadius={42}
+                            dataKey="value"
+                            startAngle={90}
+                            endAngle={-270}
+                            stroke="none"
+                          >
+                            <Cell fill={taskStats.remaining < 0 ? "#ef4444" : "#22c55e"} />
+                            <Cell fill="#475569" />
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 </div>
