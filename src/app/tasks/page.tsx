@@ -14,7 +14,6 @@ import {
   Plus,
   Search,
   Trash2,
-  Edit,
   Download,
   AlertTriangle,
   Link as LinkIcon,
@@ -301,16 +300,25 @@ export default function TasksPage() {
                 </div>
               </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+                {/* BUDGET */}
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="text-sm text-muted-foreground mb-1">
-                    Time Spent
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {formatTime(taskStats.totalHours, taskStats.totalMins)}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {taskStats.decimalHours.toFixed(2)}h decimal
+                  <div className="flex flex-col justify-between h-full">
+                    <div className="text-sm text-muted-foreground mb-1">
+                      Budget
+                    </div>
+
+                    <div>
+                      <div className="text-2xl font-bold">
+                        {selectedTask.budget
+                          ? formatCurrency(selectedTask.budget)
+                          : "N/A"}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {taskStats.entryCount}{" "}
+                        {taskStats.entryCount === 1 ? "Entry" : "Entries"}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -322,133 +330,207 @@ export default function TasksPage() {
                       : "border-border",
                   )}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="text-sm text-muted-foreground">
-                      Estimated
-                    </div>
-                    {selectedTask.isSelfReportedEstimate && (
-                      <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
-                        self-reported
-                      </span>
-                    )}
-                    {taskStats.remaining < 0 && (
-                      <AlertTriangle className="w-4 h-4 text-destructive" />
-                    )}
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {selectedTask.estimatedHours}h
-                  </div>
-                  <div
-                    className={cn(
-                      "text-xs mt-1",
-                      taskStats.remaining < 0
-                        ? "text-destructive font-medium"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {taskStats.remaining >= 0
-                      ? `${taskStats.remaining.toFixed(1)}h remaining`
-                      : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
-                  </div>
-                </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* ESTIMATED */}
+                    <div className="flex flex-col justify-between">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-sm text-muted-foreground">
+                          Estimated
+                        </div>
+                        {selectedTask.isSelfReportedEstimate && (
+                          <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
+                            SELF
+                          </span>
+                        )}
+                      </div>
 
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="text-sm text-muted-foreground mb-1">
-                    Budget
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {selectedTask.budget
-                      ? formatCurrency(selectedTask.budget)
-                      : "N/A"}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {taskStats.entryCount}{" "}
-                    {taskStats.entryCount === 1 ? "entry" : "entries"}
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {selectedTask.estimatedHours}h
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {taskStats.remaining >= 0
+                            ? `${taskStats.remaining.toFixed(1)}h remaining`
+                            : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TIME SPENT */}
+                    <div className="flex flex-col justify-between">
+                      <div className="text-sm text-muted-foreground mb-1">
+                        Time Spent
+                      </div>
+
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {formatTime(
+                            taskStats.totalHours,
+                            taskStats.totalMins,
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {taskStats.decimalHours.toFixed(2)}h decimal
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CONSUMPTION */}
+                    <div className="flex flex-col justify-between">
+                      <div className="text-sm text-muted-foreground mb-3">
+                        Consumption
+                      </div>
+
+                      <div className="flex items-center justify-start gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
+                            <span className="text-xs text-muted-foreground">
+                              Estimated
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={cn(
+                                "w-2.5 h-2.5 rounded-full",
+                                taskStats.remaining < 0
+                                  ? "bg-red-500"
+                                  : "bg-green-500",
+                              )}
+                            ></div>
+                            <span className="text-xs text-muted-foreground">
+                              Spent
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="w-16 h-16 flex-shrink-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={[
+                                  {
+                                    name: "Spent",
+                                    value: taskStats.decimalHours,
+                                  },
+                                  {
+                                    name: "Remaining",
+                                    value: Math.max(0, taskStats.remaining),
+                                  },
+                                ]}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={22}
+                                outerRadius={29}
+                                dataKey="value"
+                                startAngle={90}
+                                endAngle={-270}
+                                stroke="none"
+                              >
+                                <Cell
+                                  fill={
+                                    taskStats.remaining < 0
+                                      ? "#ef4444"
+                                      : "#22c55e"
+                                  }
+                                />
+                                <Cell fill="#475569" />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <motion.div
-                  className="bg-card border border-border rounded-lg p-6"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">Info</h2>
-                    {(selectedTask.description || selectedTask.link || selectedTaskTags.length > 0) && (
-                      <button
-                        onClick={() => setShowEditMetadataModal(true)}
-                        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" />
-                        Edit
-                      </button>
+                className="bg-card border border-border rounded-lg p-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold">Info</h2>
+                  {(selectedTask.description ||
+                    selectedTask.link ||
+                    selectedTaskTags.length > 0) && (
+                    <button
+                      onClick={() => setShowEditMetadataModal(true)}
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Edit
+                    </button>
+                  )}
+                </div>
+                {selectedTask.description ||
+                selectedTask.link ||
+                selectedTaskTags.length > 0 ? (
+                  <div className="flex gap-6">
+                    {selectedTask.description && (
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-muted-foreground mb-1">
+                          Description
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {selectedTask.description}
+                        </p>
+                      </div>
+                    )}
+                    {(selectedTask.link || selectedTaskTags.length > 0) && (
+                      <div className="w-80 flex-shrink-0 space-y-4 border-l border-border pl-6">
+                        {selectedTask.link && (
+                          <div>
+                            <div className="text-sm font-medium text-muted-foreground mb-1">
+                              Link
+                            </div>
+                            <a
+                              href={selectedTask.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
+                            >
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                              {selectedTask.link}
+                            </a>
+                          </div>
+                        )}
+                        {selectedTaskTags.length > 0 && (
+                          <div>
+                            <div className="text-sm font-medium text-muted-foreground mb-2">
+                              Tags
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedTaskTags.map((tag) => (
+                                <span
+                                  key={tag.id}
+                                  className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                                >
+                                  {tag.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                  {(selectedTask.description || selectedTask.link || selectedTaskTags.length > 0) ? (
-                    <div className="flex gap-6">
-                      {selectedTask.description && (
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-muted-foreground mb-1">
-                            Description
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap">
-                            {selectedTask.description}
-                          </p>
-                        </div>
-                      )}
-                      {(selectedTask.link || selectedTaskTags.length > 0) && (
-                        <div className="w-64 flex-shrink-0 space-y-4 border-l border-border pl-6">
-                          {selectedTask.link && (
-                            <div>
-                              <div className="text-sm font-medium text-muted-foreground mb-1">
-                                Link
-                              </div>
-                              <a
-                                href={selectedTask.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
-                              >
-                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                                {selectedTask.link}
-                              </a>
-                            </div>
-                          )}
-                          {selectedTaskTags.length > 0 && (
-                            <div>
-                              <div className="text-sm font-medium text-muted-foreground mb-2">
-                                Tags
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {selectedTaskTags.map((tag) => (
-                                  <span
-                                    key={tag.id}
-                                    className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
-                                  >
-                                    {tag.name}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        No additional info yet
-                      </p>
-                      <button
-                        onClick={() => setShowEditMetadataModal(true)}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Add description, link, or tags
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      No additional info yet
+                    </p>
+                    <button
+                      onClick={() => setShowEditMetadataModal(true)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Add description, link, or tags
+                    </button>
+                  </div>
+                )}
+              </motion.div>
 
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="text-xl font-bold mb-4">
@@ -512,7 +594,7 @@ export default function TasksPage() {
               </div>
 
               <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="text-xl font-bold mb-4">Task Controls</h2>
+                <h2 className="text-xl font-bold mb-4">Controls</h2>
                 <div className="flex items-center gap-3">
                   <label className="text-sm font-medium">
                     {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
@@ -553,7 +635,10 @@ export default function TasksPage() {
 
         <AnimatePresence>
           {showCreateModal && (
-            <CreateTaskModal onClose={() => setShowCreateModal(false)} availableTags={tags} />
+            <CreateTaskModal
+              onClose={() => setShowCreateModal(false)}
+              availableTags={tags}
+            />
           )}
           {showEstimationModal && pendingEstimationStatus && (
             <EstimationStatusModal
@@ -584,7 +669,13 @@ export default function TasksPage() {
   );
 }
 
-function CreateTaskModal({ onClose, availableTags }: { onClose: () => void; availableTags: Tag[] }) {
+function CreateTaskModal({
+  onClose,
+  availableTags,
+}: {
+  onClose: () => void;
+  availableTags: Tag[];
+}) {
   const { addTask, addTag, tasks } = useTaskStore();
   const [formData, setFormData] = useState({
     name: "",
@@ -614,7 +705,9 @@ function CreateTaskModal({ onClose, availableTags }: { onClose: () => void; avai
   }, [formData.customer, uniqueCustomers]);
 
   const filteredTags = useMemo(() => {
-    const unselectedTags = availableTags.filter(t => !selectedTagIds.includes(t.id!));
+    const unselectedTags = availableTags.filter(
+      (t) => !selectedTagIds.includes(t.id!),
+    );
     if (!newTagInput) return unselectedTags;
     return unselectedTags.filter((t) =>
       t.name.toLowerCase().includes(newTagInput.toLowerCase()),
@@ -622,7 +715,7 @@ function CreateTaskModal({ onClose, availableTags }: { onClose: () => void; avai
   }, [newTagInput, availableTags, selectedTagIds]);
 
   const selectedTags = useMemo(() => {
-    return availableTags.filter(t => selectedTagIds.includes(t.id!));
+    return availableTags.filter((t) => selectedTagIds.includes(t.id!));
   }, [availableTags, selectedTagIds]);
 
   async function handleAddTag() {
@@ -637,16 +730,19 @@ function CreateTaskModal({ onClose, availableTags }: { onClose: () => void; avai
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await addTask({
-      name: formData.name,
-      customer: formData.customer,
-      estimatedHours: parseFloat(formData.estimatedHours),
-      budget: formData.budget ? parseFloat(formData.budget) : undefined,
-      status: formData.status,
-      isSelfReportedEstimate: formData.isSelfReportedEstimate,
-      description: formData.description || undefined,
-      link: formData.link || undefined,
-    }, selectedTagIds);
+    await addTask(
+      {
+        name: formData.name,
+        customer: formData.customer,
+        estimatedHours: parseFloat(formData.estimatedHours),
+        budget: formData.budget ? parseFloat(formData.budget) : undefined,
+        status: formData.status,
+        isSelfReportedEstimate: formData.isSelfReportedEstimate,
+        description: formData.description || undefined,
+        link: formData.link || undefined,
+      },
+      selectedTagIds,
+    );
     onClose();
   }
 
@@ -797,7 +893,11 @@ function CreateTaskModal({ onClose, availableTags }: { onClose: () => void; avai
                     {tag.name}
                     <button
                       type="button"
-                      onClick={() => setSelectedTagIds(selectedTagIds.filter(id => id !== tag.id))}
+                      onClick={() =>
+                        setSelectedTagIds(
+                          selectedTagIds.filter((id) => id !== tag.id),
+                        )
+                      }
                       className="hover:text-primary/70"
                     >
                       <X className="w-3 h-3" />
@@ -812,9 +912,11 @@ function CreateTaskModal({ onClose, availableTags }: { onClose: () => void; avai
                 value={newTagInput}
                 onChange={(e) => setNewTagInput(e.target.value)}
                 onFocus={() => setShowTagSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
+                onBlur={() =>
+                  setTimeout(() => setShowTagSuggestions(false), 200)
+                }
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleAddTag();
                   }
@@ -998,18 +1100,18 @@ function EditTaskMetadataModal({
     link: task.link || "",
   });
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>(
-    taskTags.map((t) => t.id!)
+    taskTags.map((t) => t.id!),
   );
   const [newTagInput, setNewTagInput] = useState("");
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
 
   const filteredTags = useMemo(() => {
     const unselectedTags = availableTags.filter(
-      (t) => !selectedTagIds.includes(t.id!)
+      (t) => !selectedTagIds.includes(t.id!),
     );
     if (!newTagInput) return unselectedTags;
     return unselectedTags.filter((t) =>
-      t.name.toLowerCase().includes(newTagInput.toLowerCase())
+      t.name.toLowerCase().includes(newTagInput.toLowerCase()),
     );
   }, [newTagInput, availableTags, selectedTagIds]);
 
@@ -1056,7 +1158,9 @@ function EditTaskMetadataModal({
         <h2 className="text-2xl font-bold mb-4">Edit Task Info</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Description</label>
+            <label className="block text-sm font-medium mb-2">
+              Description
+            </label>
             <textarea
               value={formData.description}
               onChange={(e) =>
@@ -1095,7 +1199,7 @@ function EditTaskMetadataModal({
                       type="button"
                       onClick={() =>
                         setSelectedTagIds(
-                          selectedTagIds.filter((id) => id !== tag.id)
+                          selectedTagIds.filter((id) => id !== tag.id),
                         )
                       }
                       className="hover:text-primary/70"
