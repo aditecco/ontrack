@@ -389,6 +389,7 @@ export default function TasksPage() {
                               Estimated
                             </span>
                           </div>
+
                           <div className="flex items-center gap-2">
                             <div
                               className={cn(
@@ -479,7 +480,7 @@ export default function TasksPage() {
                       </div>
                     )}
                     {(selectedTask.link || selectedTaskTags.length > 0) && (
-                      <div className="w-64 flex-shrink-0 space-y-4 border-l border-border pl-6">
+                      <div className="w-80 flex-shrink-0 space-y-4 border-l border-border pl-6">
                         {selectedTask.link && (
                           <div>
                             <div className="text-sm font-medium text-muted-foreground mb-1">
@@ -593,7 +594,7 @@ export default function TasksPage() {
               </div>
 
               <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="text-xl font-bold mb-4">Task Controls</h2>
+                <h2 className="text-xl font-bold mb-4">Controls</h2>
                 <div className="flex items-center gap-3">
                   <label className="text-sm font-medium">
                     {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
