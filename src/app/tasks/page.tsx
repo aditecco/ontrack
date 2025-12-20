@@ -386,7 +386,7 @@ export default function TasksPage() {
                           <div className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
                             <span className="text-xs text-muted-foreground">
-                              Estimated
+                              Remaining
                             </span>
                           </div>
 
