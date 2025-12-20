@@ -301,7 +301,7 @@ export default function TasksPage() {
                 </div>
               </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div
                   className={cn(
                     "bg-card border rounded-lg p-4",
@@ -310,83 +310,35 @@ export default function TasksPage() {
                       : "border-border",
                   )}
                 >
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Time Spent Column */}
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-1">
-                        Time Spent
-                      </div>
-                      <div className="text-2xl font-bold">
-                        {formatTime(taskStats.totalHours, taskStats.totalMins)}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {taskStats.decimalHours.toFixed(2)}h decimal
-                      </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="text-sm text-muted-foreground">
+                      Estimated
                     </div>
+                    {selectedTask.isSelfReportedEstimate && (
+                      <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
+                        self-reported
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {selectedTask.estimatedHours}h
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {taskStats.remaining >= 0
+                      ? `${taskStats.remaining.toFixed(1)}h remaining`
+                      : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
+                  </div>
+                </div>
 
-                    {/* Estimated Column */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="text-sm text-muted-foreground">
-                          Estimated
-                        </div>
-                        {selectedTask.isSelfReportedEstimate && (
-                          <span className="text-xs px-2 py-0.5 rounded border border-muted-foreground/30 text-muted-foreground/70 bg-transparent">
-                            self-reported
-                          </span>
-                        )}
-                        {taskStats.remaining < 0 && (
-                          <AlertTriangle className="w-4 h-4 text-destructive" />
-                        )}
-                      </div>
-                      <div className="text-2xl font-bold">
-                        {selectedTask.estimatedHours}h
-                      </div>
-                      <div
-                        className={cn(
-                          "text-xs mt-1",
-                          taskStats.remaining < 0
-                            ? "text-destructive font-medium"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        {taskStats.remaining >= 0
-                          ? `${taskStats.remaining.toFixed(1)}h remaining`
-                          : `${Math.abs(taskStats.remaining).toFixed(1)}h over budget`}
-                      </div>
-                    </div>
-
-                    {/* Pie Chart Column */}
-                    <div className="flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height={100}>
-                        <PieChart>
-                          <Pie
-                            data={[
-                              {
-                                name: "Spent",
-                                value: taskStats.decimalHours,
-                                fill: taskStats.remaining < 0 ? "#ef4444" : "#3b82f6",
-                              },
-                              {
-                                name: "Remaining",
-                                value: Math.max(0, taskStats.remaining),
-                                fill: "#94a3b8",
-                              },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={25}
-                            outerRadius={40}
-                            paddingAngle={2}
-                            dataKey="value"
-                          >
-                            {taskStats.remaining < 0 && (
-                              <Cell key="over" fill="#ef4444" />
-                            )}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="text-sm text-muted-foreground mb-1">
+                    Time Spent
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {formatTime(taskStats.totalHours, taskStats.totalMins)}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {taskStats.decimalHours.toFixed(2)}h decimal
                   </div>
                 </div>
 
@@ -402,6 +354,55 @@ export default function TasksPage() {
                   <div className="text-xs text-muted-foreground mt-1">
                     {taskStats.entryCount}{" "}
                     {taskStats.entryCount === 1 ? "entry" : "entries"}
+                  </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <div className="text-sm text-muted-foreground mb-3">
+                    Consumption
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-slate-500"></div>
+                        <span className="text-xs text-muted-foreground">Estimated</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-3 h-3 rounded-full",
+                          taskStats.remaining < 0 ? "bg-red-500" : "bg-green-500"
+                        )}></div>
+                        <span className="text-xs text-muted-foreground">Spent</span>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <ResponsiveContainer width={120} height={120}>
+                        <PieChart>
+                          <Pie
+                            data={[
+                              {
+                                name: "Spent",
+                                value: taskStats.decimalHours,
+                                fill: taskStats.remaining < 0 ? "#ef4444" : "#22c55e",
+                              },
+                              {
+                                name: "Remaining",
+                                value: Math.max(0, taskStats.remaining),
+                                fill: "#64748b",
+                              },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={35}
+                            outerRadius={55}
+                            paddingAngle={0}
+                            dataKey="value"
+                            startAngle={90}
+                            endAngle={-270}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
               </div>
