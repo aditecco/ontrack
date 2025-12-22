@@ -49,12 +49,49 @@ export interface DayNote {
   updatedAt: Date;
 }
 
+export interface ReportPreset {
+  id?: number;
+  name: string;
+  daysBack: number;
+  includeCurrentDay: boolean;
+  includeDayNotes: boolean;
+  isDefault?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ReportTemplate {
+  id?: number;
+  name: string;
+  content: string;
+  isDefault?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Report {
+  id?: number;
+  title: string;
+  content: string;
+  presetId?: number;
+  templateId?: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+  includedDayNotes: boolean;
+  createdAt: Date;
+}
+
 export class OnTrackDB extends Dexie {
   tasks!: Table<Task>;
   timeEntries!: Table<TimeEntry>;
   dayNotes!: Table<DayNote>;
   tags!: Table<Tag>;
   taskTags!: Table<TaskTag>;
+  reports!: Table<Report>;
+  reportPresets!: Table<ReportPreset>;
+  reportTemplates!: Table<ReportTemplate>;
 
   constructor() {
     super("ontrack");
@@ -85,6 +122,17 @@ export class OnTrackDB extends Dexie {
       dayNotes: "++id, &date, createdAt",
       tags: "++id, &name, createdAt",
       taskTags: "++id, taskId, tagId, [taskId+tagId]",
+    });
+    this.version(6).stores({
+      tasks:
+        "++id, name, customer, status, estimationStatus, isSelfReportedEstimate, createdAt",
+      timeEntries: "++id, taskId, date, createdAt",
+      dayNotes: "++id, &date, createdAt",
+      tags: "++id, &name, createdAt",
+      taskTags: "++id, taskId, tagId, [taskId+tagId]",
+      reports: "++id, createdAt",
+      reportPresets: "++id, name, isDefault, createdAt",
+      reportTemplates: "++id, name, isDefault, createdAt",
     });
   }
 }
