@@ -30,26 +30,37 @@ function ReportViewContent() {
         return;
       }
 
+      setIsLoading(true);
       await fetchReports();
-      const foundReport = reports.find((r) => r.id === Number(reportId));
+    }
 
-      if (!foundReport) {
-        toast.error("Report not found");
-        router.push("/reports");
-        return;
-      }
+    loadReport();
+  }, [searchParams, fetchReports, router]);
 
-      setReport(foundReport);
+  useEffect(() => {
+    const reportId = searchParams.get("id");
+    if (!reportId || reports.length === 0) return;
 
-      // Parse and sanitize markdown
+    const foundReport = reports.find((r) => r.id === Number(reportId));
+
+    if (!foundReport) {
+      toast.error("Report not found");
+      router.push("/reports");
+      return;
+    }
+
+    setReport(foundReport);
+
+    // Parse and sanitize markdown
+    async function processMarkdown() {
       const rawHtml = await marked(foundReport.content);
       const sanitized = DOMPurify.sanitize(rawHtml);
       setSanitizedHtml(sanitized);
       setIsLoading(false);
     }
 
-    loadReport();
-  }, [searchParams, fetchReports, reports, router]);
+    processMarkdown();
+  }, [reports, searchParams, router]);
 
   function handleExportText() {
     if (!report) return;
@@ -132,7 +143,19 @@ function ReportViewContent() {
         {/* Report Content */}
         <div className="flex-1 overflow-auto p-6 print:p-8">
           <article
-            className="max-w-5xl mx-auto prose prose-slate dark:prose-invert prose-headings:font-semibold prose-h1:text-3xl prose-h1:border-b prose-h1:border-border prose-h1:pb-2 prose-h2:text-2xl prose-h2:mt-8 prose-h3:text-xl prose-h3:mt-6 prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-code:text-foreground prose-code:bg-accent prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-accent print:prose-p:text-black print:prose-li:text-black print:prose-headings:text-black"
+            className="max-w-5xl mx-auto prose prose-slate dark:prose-invert max-w-none
+              prose-headings:font-semibold
+              prose-h1:text-3xl prose-h1:border-b prose-h1:border-border prose-h1:pb-2 prose-h1:mb-6
+              prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:font-bold
+              prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h3:font-semibold
+              prose-p:text-foreground prose-p:mb-4 prose-p:leading-relaxed
+              prose-strong:text-foreground prose-strong:font-bold
+              prose-ul:list-disc prose-ul:ml-6 prose-ul:mb-4 prose-ul:space-y-2
+              prose-ol:list-decimal prose-ol:ml-6 prose-ol:mb-4 prose-ol:space-y-2
+              prose-li:text-foreground prose-li:leading-relaxed prose-li:marker:text-foreground
+              prose-code:text-foreground prose-code:bg-accent prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+              prose-pre:bg-accent prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
+              print:prose-p:text-black print:prose-li:text-black print:prose-headings:text-black print:prose-strong:text-black"
             dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />
         </div>
