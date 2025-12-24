@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { PageTransition } from "@/components/PageTransition";
 import { ArrowLeft, Download, FileDown, Printer, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -13,7 +13,7 @@ import DOMPurify from "dompurify";
 import type { Report } from "@/lib/db";
 
 export default function ReportViewPage() {
-  const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { reports, fetchReports, deleteReport } = useReportStore();
   const [report, setReport] = useState<Report | null>(null);
@@ -22,9 +22,16 @@ export default function ReportViewPage() {
 
   useEffect(() => {
     async function loadReport() {
+      const reportId = searchParams.get("id");
+
+      if (!reportId) {
+        toast.error("No report ID provided");
+        router.push("/reports");
+        return;
+      }
+
       await fetchReports();
-      const reportId = Number(params.id);
-      const foundReport = reports.find((r) => r.id === reportId);
+      const foundReport = reports.find((r) => r.id === Number(reportId));
 
       if (!foundReport) {
         toast.error("Report not found");
@@ -42,7 +49,7 @@ export default function ReportViewPage() {
     }
 
     loadReport();
-  }, [params.id, fetchReports, reports, router]);
+  }, [searchParams, fetchReports, reports, router]);
 
   function handleExportText() {
     if (!report) return;

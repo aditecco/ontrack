@@ -197,7 +197,7 @@ export default function ReportsPage() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => router.push(`/reports/${report.id}`)}
+                        onClick={() => router.push(`/reports/view?id=${report.id}`)}
                         className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-opacity text-sm"
                       >
                         <Eye className="w-3 h-3" />
