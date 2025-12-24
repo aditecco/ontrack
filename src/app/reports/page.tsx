@@ -18,6 +18,8 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { initializeDefaultReportSettings } from "@/lib/reportConstants";
 import { db } from "@/lib/db";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 export default function ReportsPage() {
   const {
@@ -119,21 +121,28 @@ export default function ReportsPage() {
 
   async function handleExportPDF(report: any) {
     try {
-      // For now, we'll use a simple approach: open a print dialog with the markdown rendered
-      const printWindow = window.open("", "_blank");
-      if (!printWindow) {
-        toast.error("Please allow popups to export as PDF");
-        return;
-      }
+      // Parse markdown to HTML using marked (battle-tested library)
+      const rawHtml = await marked(report.content);
 
-      // Convert markdown to HTML (basic conversion)
-      const htmlContent = convertMarkdownToHTML(report.content);
+      // Sanitize HTML to prevent XSS attacks using DOMPurify
+      const sanitizedHtml = DOMPurify.sanitize(rawHtml);
 
-      printWindow.document.write(`
+      // Escape the title to prevent XSS in the title tag
+      const escapedTitle = report.title
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+      // Create complete HTML document with styles
+      const htmlDocument = `
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
           <head>
-            <title>${report.title}</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapedTitle}</title>
             <style>
               body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -156,7 +165,7 @@ export default function ReportsPage() {
                 color: #7f8c8d;
                 margin-top: 20px;
               }
-              ul {
+              ul, ol {
                 padding-left: 20px;
               }
               li {
@@ -170,6 +179,24 @@ export default function ReportsPage() {
                 border-top: 1px solid #bdc3c7;
                 margin: 30px 0;
               }
+              code {
+                background-color: #f4f4f4;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: 'Courier New', monospace;
+              }
+              pre {
+                background-color: #f4f4f4;
+                padding: 12px;
+                border-radius: 5px;
+                overflow-x: auto;
+              }
+              blockquote {
+                border-left: 4px solid #3498db;
+                padding-left: 16px;
+                margin-left: 0;
+                color: #555;
+              }
               @media print {
                 body {
                   margin: 0;
@@ -179,45 +206,39 @@ export default function ReportsPage() {
             </style>
           </head>
           <body>
-            ${htmlContent}
+            ${sanitizedHtml}
           </body>
         </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
+      `;
+
+      // Create a Blob from the HTML (safer than document.write)
+      const blob = new Blob([htmlDocument], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+
+      // Open in new window and trigger print
+      const printWindow = window.open(url, '_blank');
+      if (!printWindow) {
+        toast.error("Please allow popups to export as PDF");
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          // Clean up the blob URL after printing
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+          }, 1000);
+        }, 250);
+      };
+
       toast.success("Opening print dialog for PDF export");
     } catch (error) {
       console.error("Failed to export PDF:", error);
       toast.error("Failed to export as PDF");
     }
-  }
-
-  function convertMarkdownToHTML(markdown: string): string {
-    let html = markdown;
-
-    // Convert headers
-    html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
-    html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
-    html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
-
-    // Convert bold
-    html = html.replace(/\*\*(.*?)\*\*/gim, "<strong>$1</strong>");
-
-    // Convert horizontal rules
-    html = html.replace(/^---$/gim, "<hr>");
-
-    // Convert lists (basic)
-    html = html.replace(/^\- (.*$)/gim, "<li>$1</li>");
-    html = html.replace(/(<li>.*<\/li>)/gim, "<ul>$1</ul>");
-
-    // Convert line breaks
-    html = html.replace(/\n\n/g, "</p><p>");
-    html = `<p>${html}</p>`;
-
-    return html;
   }
 
   async function handleDeleteReport(id: number) {
