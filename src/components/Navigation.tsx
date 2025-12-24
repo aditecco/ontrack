@@ -11,6 +11,7 @@ import {
   Zap,
   Sun,
   Moon,
+  BarChart3,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -40,6 +41,12 @@ const routes = [
     label: "Log",
     icon: FileText,
     href: "/log",
+    color: "text-primary",
+  },
+  {
+    label: "Reports",
+    icon: BarChart3,
+    href: "/reports",
     color: "text-primary",
   },
   {
