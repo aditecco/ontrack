@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PageTransition } from "@/components/PageTransition";
 import {
   FileText,
@@ -8,7 +9,6 @@ import {
   Download,
   Trash2,
   Eye,
-  FileDown,
   Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -18,10 +18,9 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { initializeDefaultReportSettings } from "@/lib/reportConstants";
 import { db } from "@/lib/db";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
 
 export default function ReportsPage() {
+  const router = useRouter();
   const {
     reports,
     presets,
@@ -34,8 +33,6 @@ export default function ReportsPage() {
   } = useReportStore();
 
   const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
@@ -101,11 +98,6 @@ export default function ReportsPage() {
     }
   }
 
-  function handleViewReport(report: any) {
-    setSelectedReport(report);
-    setShowViewModal(true);
-  }
-
   function handleExportText(report: any) {
     const blob = new Blob([report.content], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
@@ -117,128 +109,6 @@ export default function ReportsPage() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success("Report exported as text");
-  }
-
-  async function handleExportPDF(report: any) {
-    try {
-      // Parse markdown to HTML using marked (battle-tested library)
-      const rawHtml = await marked(report.content);
-
-      // Sanitize HTML to prevent XSS attacks using DOMPurify
-      const sanitizedHtml = DOMPurify.sanitize(rawHtml);
-
-      // Escape the title to prevent XSS in the title tag
-      const escapedTitle = report.title
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-
-      // Create complete HTML document with styles
-      const htmlDocument = `
-        <!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${escapedTitle}</title>
-            <style>
-              body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                max-width: 800px;
-                margin: 40px auto;
-                padding: 20px;
-                line-height: 1.6;
-                color: #333;
-              }
-              h1 {
-                color: #2c3e50;
-                border-bottom: 2px solid #3498db;
-                padding-bottom: 10px;
-              }
-              h2 {
-                color: #34495e;
-                margin-top: 30px;
-              }
-              h3 {
-                color: #7f8c8d;
-                margin-top: 20px;
-              }
-              ul, ol {
-                padding-left: 20px;
-              }
-              li {
-                margin: 5px 0;
-              }
-              strong {
-                color: #2c3e50;
-              }
-              hr {
-                border: none;
-                border-top: 1px solid #bdc3c7;
-                margin: 30px 0;
-              }
-              code {
-                background-color: #f4f4f4;
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-family: 'Courier New', monospace;
-              }
-              pre {
-                background-color: #f4f4f4;
-                padding: 12px;
-                border-radius: 5px;
-                overflow-x: auto;
-              }
-              blockquote {
-                border-left: 4px solid #3498db;
-                padding-left: 16px;
-                margin-left: 0;
-                color: #555;
-              }
-              @media print {
-                body {
-                  margin: 0;
-                  padding: 20px;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            ${sanitizedHtml}
-          </body>
-        </html>
-      `;
-
-      // Create a Blob from the HTML (safer than document.write)
-      const blob = new Blob([htmlDocument], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-
-      // Open in new window and trigger print
-      const printWindow = window.open(url, '_blank');
-      if (!printWindow) {
-        toast.error("Please allow popups to export as PDF");
-        URL.revokeObjectURL(url);
-        return;
-      }
-
-      // Wait for content to load, then print
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          // Clean up the blob URL after printing
-          setTimeout(() => {
-            URL.revokeObjectURL(url);
-          }, 1000);
-        }, 250);
-      };
-
-      toast.success("Opening print dialog for PDF export");
-    } catch (error) {
-      console.error("Failed to export PDF:", error);
-      toast.error("Failed to export as PDF");
-    }
   }
 
   async function handleDeleteReport(id: number) {
@@ -327,8 +197,8 @@ export default function ReportsPage() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleViewReport(report)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm"
+                        onClick={() => router.push(`/reports/${report.id}`)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-opacity text-sm"
                       >
                         <Eye className="w-3 h-3" />
                         <span>View</span>
@@ -339,13 +209,6 @@ export default function ReportsPage() {
                         title="Export as Markdown"
                       >
                         <Download className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => handleExportPDF(report)}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm"
-                        title="Export as PDF"
-                      >
-                        <FileDown className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => handleDeleteReport(report.id!)}
@@ -450,58 +313,6 @@ export default function ReportsPage() {
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {isGenerating ? "Generating..." : "Generate"}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* View Report Modal */}
-      {showViewModal && selectedReport && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowViewModal(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-lg p-6 max-w-4xl mx-auto shadow-xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">
-                {selectedReport.title}
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleExportText(selectedReport)}
-                  className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Text</span>
-                </button>
-                <button
-                  onClick={() => handleExportPDF(selectedReport)}
-                  className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm flex items-center gap-2"
-                >
-                  <FileDown className="w-4 h-4" />
-                  <span>PDF</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-auto bg-background border border-border rounded-lg p-6">
-              <pre className="whitespace-pre-wrap font-sans text-sm">
-                {selectedReport.content}
-              </pre>
-            </div>
-
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setShowViewModal(false)}
-                className="px-4 py-2 bg-accent rounded-lg hover:bg-accent/80 transition-colors"
-              >
-                Close
               </button>
             </div>
           </motion.div>
