@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { PageTransition } from "@/components/PageTransition";
 import { ArrowLeft, Download, FileDown, Printer, Trash2 } from "lucide-react";
@@ -12,7 +12,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import type { Report } from "@/lib/db";
 
-export default function ReportViewPage() {
+function ReportViewContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { reports, fetchReports, deleteReport } = useReportStore();
@@ -210,5 +210,21 @@ export default function ReportViewPage() {
         }
       `}</style>
     </PageTransition>
+  );
+}
+
+export default function ReportViewPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageTransition>
+          <div className="h-full flex items-center justify-center">
+            <div className="text-muted-foreground">Loading report...</div>
+          </div>
+        </PageTransition>
+      }
+    >
+      <ReportViewContent />
+    </Suspense>
   );
 }
