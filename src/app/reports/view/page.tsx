@@ -53,7 +53,7 @@ function ReportViewContent() {
 
     // Parse and sanitize markdown
     async function processMarkdown() {
-      const rawHtml = await marked(foundReport.content);
+      const rawHtml = await marked(foundReport?.content ?? "");
       const sanitized = DOMPurify.sanitize(rawHtml);
       setSanitizedHtml(sanitized);
       setIsLoading(false);
