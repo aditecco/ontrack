@@ -128,6 +128,21 @@ export default function TasksPage() {
 
   const handleEstimationStatusChange = (value: string) => {
     if (!value) return;
+
+    // Check if changing from one status to another (and there's a comment)
+    if (
+      selectedTask?.estimationStatus &&
+      selectedTask.estimationStatus !== value &&
+      selectedTask.estimationReason
+    ) {
+      const confirmed = window.confirm(
+        `Changing the estimation status will clear the existing comment. Do you want to continue?`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setPendingEstimationStatus(value as "underestimated" | "overestimated");
     setShowEstimationModal(true);
   };
@@ -594,22 +609,34 @@ export default function TasksPage() {
               </div>
 
               <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="text-xl font-bold mb-4">Controls</h2>
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium">
-                    {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
-                  </label>
-                  <select
-                    value={selectedTask.estimationStatus || ""}
-                    onChange={(e) =>
-                      handleEstimationStatusChange(e.target.value)
-                    }
-                    className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">Select status...</option>
-                    <option value="underestimated">Underestimated</option>
-                    <option value="overestimated">Overestimated</option>
-                  </select>
+                <h2 className="text-xl font-bold mb-4">Actions</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-3">
+                    <label className="text-sm font-medium">
+                      {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
+                    </label>
+                    <select
+                      value={selectedTask.estimationStatus || ""}
+                      onChange={(e) =>
+                        handleEstimationStatusChange(e.target.value)
+                      }
+                      className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select status...</option>
+                      <option value="underestimated">Underestimated</option>
+                      <option value="overestimated">Overestimated</option>
+                    </select>
+                  </div>
+                  {selectedTask.estimationStatus && selectedTask.estimationReason && (
+                    <div className="flex flex-col gap-3">
+                      <label className="text-sm font-medium">Comment</label>
+                      <div className="px-4 py-2 bg-accent/30 border border-border rounded-lg min-h-[42px] flex items-center">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {selectedTask.estimationReason}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
