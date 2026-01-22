@@ -61,6 +61,8 @@ export default function TasksPage() {
   >("");
   const [selectedTaskTags, setSelectedTaskTags] = useState<Tag[]>([]);
   const [showEditMetadataModal, setShowEditMetadataModal] = useState(false);
+  const [showStatusChangeWarning, setShowStatusChangeWarning] = useState(false);
+  const [pendingStatusChangeValue, setPendingStatusChangeValue] = useState("");
 
   useEffect(() => {
     fetchTasks();
@@ -128,8 +130,34 @@ export default function TasksPage() {
 
   const handleEstimationStatusChange = (value: string) => {
     if (!value) return;
+
+    // Check if changing from one status to another (and there's a comment)
+    if (
+      selectedTask?.estimationStatus &&
+      selectedTask.estimationStatus !== value &&
+      selectedTask.estimationReason
+    ) {
+      setPendingStatusChangeValue(value);
+      setShowStatusChangeWarning(true);
+      return;
+    }
+
     setPendingEstimationStatus(value as "underestimated" | "overestimated");
     setShowEstimationModal(true);
+  };
+
+  const handleConfirmStatusChange = () => {
+    setPendingEstimationStatus(
+      pendingStatusChangeValue as "underestimated" | "overestimated"
+    );
+    setShowStatusChangeWarning(false);
+    setPendingStatusChangeValue("");
+    setShowEstimationModal(true);
+  };
+
+  const handleCancelStatusChange = () => {
+    setShowStatusChangeWarning(false);
+    setPendingStatusChangeValue("");
   };
 
   const handleEstimationModalSubmit = async (reason: string) => {
@@ -594,22 +622,34 @@ export default function TasksPage() {
               </div>
 
               <div className="bg-card border border-border rounded-lg p-6">
-                <h2 className="text-xl font-bold mb-4">Controls</h2>
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium">
-                    {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
-                  </label>
-                  <select
-                    value={selectedTask.estimationStatus || ""}
-                    onChange={(e) =>
-                      handleEstimationStatusChange(e.target.value)
-                    }
-                    className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">Select status...</option>
-                    <option value="underestimated">Underestimated</option>
-                    <option value="overestimated">Overestimated</option>
-                  </select>
+                <h2 className="text-xl font-bold mb-4">Actions</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-3">
+                    <label className="text-sm font-medium">
+                      {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
+                    </label>
+                    <select
+                      value={selectedTask.estimationStatus || ""}
+                      onChange={(e) =>
+                        handleEstimationStatusChange(e.target.value)
+                      }
+                      className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select status...</option>
+                      <option value="underestimated">Underestimated</option>
+                      <option value="overestimated">Overestimated</option>
+                    </select>
+                  </div>
+                  {selectedTask.estimationStatus && selectedTask.estimationReason && (
+                    <div className="flex flex-col gap-3">
+                      <label className="text-sm font-medium">Comment</label>
+                      <div className="px-4 py-2 bg-accent/30 border border-border rounded-lg min-h-[42px] flex items-center">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {selectedTask.estimationReason}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -638,6 +678,14 @@ export default function TasksPage() {
             <CreateTaskModal
               onClose={() => setShowCreateModal(false)}
               availableTags={tags}
+            />
+          )}
+          {showStatusChangeWarning && (
+            <ConfirmationModal
+              title="Change Estimation Status?"
+              message="Changing the estimation status will clear the existing comment. Do you want to continue?"
+              onConfirm={handleConfirmStatusChange}
+              onCancel={handleCancelStatusChange}
             />
           )}
           {showEstimationModal && pendingEstimationStatus && (
@@ -1277,6 +1325,57 @@ function EditTaskMetadataModal({
             </button>
           </div>
         </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function ConfirmationModal({
+  title,
+  message,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onCancel}
+    >
+      <motion.div
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-md"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-2xl font-bold mb-4">{title}</h2>
+        <p className="text-sm text-muted-foreground mb-6">{message}</p>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 px-6 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg font-medium hover:opacity-90 transition-opacity"
+          >
+            Continue
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
