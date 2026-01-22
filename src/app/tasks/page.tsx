@@ -61,6 +61,8 @@ export default function TasksPage() {
   >("");
   const [selectedTaskTags, setSelectedTaskTags] = useState<Tag[]>([]);
   const [showEditMetadataModal, setShowEditMetadataModal] = useState(false);
+  const [showStatusChangeWarning, setShowStatusChangeWarning] = useState(false);
+  const [pendingStatusChangeValue, setPendingStatusChangeValue] = useState("");
 
   useEffect(() => {
     fetchTasks();
@@ -135,16 +137,27 @@ export default function TasksPage() {
       selectedTask.estimationStatus !== value &&
       selectedTask.estimationReason
     ) {
-      const confirmed = window.confirm(
-        `Changing the estimation status will clear the existing comment. Do you want to continue?`
-      );
-      if (!confirmed) {
-        return;
-      }
+      setPendingStatusChangeValue(value);
+      setShowStatusChangeWarning(true);
+      return;
     }
 
     setPendingEstimationStatus(value as "underestimated" | "overestimated");
     setShowEstimationModal(true);
+  };
+
+  const handleConfirmStatusChange = () => {
+    setPendingEstimationStatus(
+      pendingStatusChangeValue as "underestimated" | "overestimated"
+    );
+    setShowStatusChangeWarning(false);
+    setPendingStatusChangeValue("");
+    setShowEstimationModal(true);
+  };
+
+  const handleCancelStatusChange = () => {
+    setShowStatusChangeWarning(false);
+    setPendingStatusChangeValue("");
   };
 
   const handleEstimationModalSubmit = async (reason: string) => {
@@ -665,6 +678,14 @@ export default function TasksPage() {
             <CreateTaskModal
               onClose={() => setShowCreateModal(false)}
               availableTags={tags}
+            />
+          )}
+          {showStatusChangeWarning && (
+            <ConfirmationModal
+              title="Change Estimation Status?"
+              message="Changing the estimation status will clear the existing comment. Do you want to continue?"
+              onConfirm={handleConfirmStatusChange}
+              onCancel={handleCancelStatusChange}
             />
           )}
           {showEstimationModal && pendingEstimationStatus && (
@@ -1304,6 +1325,57 @@ function EditTaskMetadataModal({
             </button>
           </div>
         </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function ConfirmationModal({
+  title,
+  message,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onCancel}
+    >
+      <motion.div
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-md"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-2xl font-bold mb-4">{title}</h2>
+        <p className="text-sm text-muted-foreground mb-6">{message}</p>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 px-6 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg font-medium hover:opacity-90 transition-opacity"
+          >
+            Continue
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
