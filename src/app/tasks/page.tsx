@@ -64,11 +64,34 @@ export default function TasksPage() {
   const [showStatusChangeWarning, setShowStatusChangeWarning] = useState(false);
   const [pendingStatusChangeValue, setPendingStatusChangeValue] = useState("");
 
+  // Filter states
+  const [filterEstimationStatus, setFilterEstimationStatus] = useState<string>("");
+  const [filterTag, setFilterTag] = useState<string>("");
+  const [filterTaskStatus, setFilterTaskStatus] = useState<string>("");
+  const [taskTagsMap, setTaskTagsMap] = useState<Map<number, Tag[]>>(new Map());
+
   useEffect(() => {
     fetchTasks();
     fetchTags();
     fetchTimeEntries();
   }, [fetchTasks, fetchTags, fetchTimeEntries]);
+
+  // Fetch tags for all tasks to enable tag filtering
+  useEffect(() => {
+    async function fetchAllTaskTags() {
+      const map = new Map<number, Tag[]>();
+      for (const task of tasks) {
+        if (task.id) {
+          const tags = await getTaskTags(task.id);
+          map.set(task.id, tags);
+        }
+      }
+      setTaskTagsMap(map);
+    }
+    if (tasks.length > 0) {
+      fetchAllTaskTags();
+    }
+  }, [tasks, getTaskTags]);
 
   useEffect(() => {
     if (selectedTaskId) {
@@ -78,11 +101,28 @@ export default function TasksPage() {
     }
   }, [selectedTaskId, getTaskTags]);
 
-  const filteredTasks = tasks.filter(
-    (task) =>
-      task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.customer.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      // Search filter
+      const matchesSearch =
+        task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.customer.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Estimation status filter
+      const matchesEstimationStatus = !filterEstimationStatus ||
+        (filterEstimationStatus === "none" ? !task.estimationStatus : task.estimationStatus === filterEstimationStatus);
+
+      // Task status filter (active/done)
+      const matchesTaskStatus = !filterTaskStatus || task.status === filterTaskStatus;
+
+      // Tag filter - check if task has the selected tag
+      const matchesTag = !filterTag ||
+        (task.id && taskTagsMap.has(task.id) &&
+          taskTagsMap.get(task.id)!.some(tag => tag.id?.toString() === filterTag));
+
+      return matchesSearch && matchesEstimationStatus && matchesTaskStatus && matchesTag;
+    });
+  }, [tasks, searchTerm, filterEstimationStatus, filterTaskStatus, filterTag, taskTagsMap]);
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId);
 
@@ -180,20 +220,72 @@ export default function TasksPage() {
     setShowEstimationModal(false);
   };
 
+  const handleTaskStatusChange = async (value: string) => {
+    if (!selectedTask || !value) return;
+
+    const newStatus = value as "active" | "completed";
+    await updateTask(selectedTask.id!, {
+      status: newStatus,
+    });
+
+    toast.success(`Task marked as ${newStatus === "active" ? "active" : "done"}`);
+  };
+
   return (
     <PageTransition>
       <div className="h-full flex">
-        <aside className="w-80 border-r border-border bg-card flex flex-col">
-          <div className="p-4 border-b border-border">
+        <aside className="w-96 border-r border-border bg-card flex flex-col">
+          <div className="p-4 border-b border-border space-y-3">
+            {/* Search Box - Larger */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-11 pr-4 py-3 text-base bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
+            </div>
+
+            {/* Filters Row */}
+            <div className="grid grid-cols-3 gap-2">
+              {/* Estimation Status Filter */}
+              <select
+                value={filterEstimationStatus}
+                onChange={(e) => setFilterEstimationStatus(e.target.value)}
+                className="px-2 py-2 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All Status</option>
+                <option value="none">No Status</option>
+                <option value="underestimated">Under</option>
+                <option value="overestimated">Over</option>
+              </select>
+
+              {/* Tag Filter */}
+              <select
+                value={filterTag}
+                onChange={(e) => setFilterTag(e.target.value)}
+                className="px-2 py-2 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All Tags</option>
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.id?.toString()}>
+                    {tag.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Active/Done Filter */}
+              <select
+                value={filterTaskStatus}
+                onChange={(e) => setFilterTaskStatus(e.target.value)}
+                className="px-2 py-2 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="completed">Done</option>
+              </select>
             </div>
           </div>
 
@@ -623,33 +715,51 @@ export default function TasksPage() {
 
               <div className="bg-card border border-border rounded-lg p-6">
                 <h2 className="text-xl font-bold mb-4">Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex flex-col gap-3">
-                    <label className="text-sm font-medium">
-                      {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
-                    </label>
-                    <select
-                      value={selectedTask.estimationStatus || ""}
-                      onChange={(e) =>
-                        handleEstimationStatusChange(e.target.value)
-                      }
-                      className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="">Select status...</option>
-                      <option value="underestimated">Underestimated</option>
-                      <option value="overestimated">Overestimated</option>
-                    </select>
-                  </div>
-                  {selectedTask.estimationStatus && selectedTask.estimationReason && (
+                <div className="space-y-6">
+                  {/* Estimation Status Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col gap-3">
-                      <label className="text-sm font-medium">Comment</label>
-                      <div className="px-4 py-2 bg-accent/30 border border-border rounded-lg min-h-[42px] flex items-center">
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                          {selectedTask.estimationReason}
-                        </p>
-                      </div>
+                      <label className="text-sm font-medium">
+                        {selectedTask.estimationStatus ? "Marked as:" : "Mark as:"}
+                      </label>
+                      <select
+                        value={selectedTask.estimationStatus || ""}
+                        onChange={(e) =>
+                          handleEstimationStatusChange(e.target.value)
+                        }
+                        className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">Select status...</option>
+                        <option value="underestimated">Underestimated</option>
+                        <option value="overestimated">Overestimated</option>
+                      </select>
                     </div>
-                  )}
+                    {selectedTask.estimationStatus && selectedTask.estimationReason && (
+                      <div className="flex flex-col gap-3">
+                        <label className="text-sm font-medium">Comment</label>
+                        <div className="px-4 py-2 bg-accent/30 border border-border rounded-lg min-h-[42px] flex items-center">
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                            {selectedTask.estimationReason}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Task Status Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex flex-col gap-3">
+                      <label className="text-sm font-medium">Task Status</label>
+                      <select
+                        value={selectedTask.status === "completed" ? "completed" : "active"}
+                        onChange={(e) => handleTaskStatusChange(e.target.value)}
+                        className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="active">Active</option>
+                        <option value="completed">Done</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
