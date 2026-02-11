@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTimeEntryStore } from "@/store/useTimeEntryStore";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
   formatTime,
   formatDecimalHours,
@@ -64,10 +65,10 @@ export default function TasksPage() {
   const [showStatusChangeWarning, setShowStatusChangeWarning] = useState(false);
   const [pendingStatusChangeValue, setPendingStatusChangeValue] = useState("");
 
-  // Filter states
-  const [filterEstimationStatus, setFilterEstimationStatus] = useState<string>("");
-  const [filterTag, setFilterTag] = useState<string>("");
-  const [filterTaskStatus, setFilterTaskStatus] = useState<string>("");
+  // Filter states (persisted in local storage)
+  const [filterEstimationStatus, setFilterEstimationStatus] = useLocalStorage<string>("tasks-filter-estimation-status", "");
+  const [filterTag, setFilterTag] = useLocalStorage<string>("tasks-filter-tag", "");
+  const [filterTaskStatus, setFilterTaskStatus] = useLocalStorage<string>("tasks-filter-task-status", "");
   const [taskTagsMap, setTaskTagsMap] = useState<Map<number, Tag[]>>(new Map());
 
   useEffect(() => {
