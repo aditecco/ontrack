@@ -58,7 +58,7 @@ export default function TasksPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEstimationModal, setShowEstimationModal] = useState(false);
   const [pendingEstimationStatus, setPendingEstimationStatus] = useState<
-    "underestimated" | "overestimated" | ""
+    "underestimated" | "overestimated" | "on_track" | ""
   >("");
   const [selectedTaskTags, setSelectedTaskTags] = useState<Tag[]>([]);
   const [showEditMetadataModal, setShowEditMetadataModal] = useState(false);
@@ -183,13 +183,13 @@ export default function TasksPage() {
       return;
     }
 
-    setPendingEstimationStatus(value as "underestimated" | "overestimated");
+    setPendingEstimationStatus(value as "underestimated" | "overestimated" | "on_track");
     setShowEstimationModal(true);
   };
 
   const handleConfirmStatusChange = () => {
     setPendingEstimationStatus(
-      pendingStatusChangeValue as "underestimated" | "overestimated"
+      pendingStatusChangeValue as "underestimated" | "overestimated" | "on_track"
     );
     setShowStatusChangeWarning(false);
     setPendingStatusChangeValue("");
@@ -207,7 +207,8 @@ export default function TasksPage() {
     await updateTask(selectedTask.id!, {
       estimationStatus: pendingEstimationStatus as
         | "underestimated"
-        | "overestimated",
+        | "overestimated"
+        | "on_track",
       estimationReason: reason || undefined,
     });
 
@@ -224,12 +225,18 @@ export default function TasksPage() {
   const handleTaskStatusChange = async (value: string) => {
     if (!selectedTask || !value) return;
 
-    const newStatus = value as "active" | "completed";
+    const newStatus = value as "active" | "completed" | "pending" | "canceled";
     await updateTask(selectedTask.id!, {
       status: newStatus,
     });
 
-    toast.success(`Task marked as ${newStatus === "active" ? "active" : "done"}`);
+    const statusLabels: Record<string, string> = {
+      pending: "pending",
+      active: "active",
+      completed: "done",
+      canceled: "canceled",
+    };
+    toast.success(`Task marked as ${statusLabels[newStatus] || newStatus}`);
   };
 
   return (
@@ -261,6 +268,7 @@ export default function TasksPage() {
                 <option value="none">No Status</option>
                 <option value="underestimated">Under</option>
                 <option value="overestimated">Over</option>
+                <option value="on_track">On Track</option>
               </select>
 
               {/* Tag Filter */}
@@ -277,15 +285,17 @@ export default function TasksPage() {
                 ))}
               </select>
 
-              {/* Active/Done Filter */}
+              {/* Task Status Filter */}
               <select
                 value={filterTaskStatus}
                 onChange={(e) => setFilterTaskStatus(e.target.value)}
                 className="px-2 py-2 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">All</option>
+                <option value="pending">Pending</option>
                 <option value="active">Active</option>
                 <option value="completed">Done</option>
+                <option value="canceled">Canceled</option>
               </select>
             </div>
           </div>
@@ -310,9 +320,11 @@ export default function TasksPage() {
                   <span
                     className={cn(
                       "px-2 py-1 rounded",
+                      task.status === "pending" && "bg-yellow-500/20 text-yellow-400",
                       task.status === "active" && "bg-primary/20 text-primary",
                       task.status === "completed" &&
                         "bg-green-500/20 text-green-400",
+                      task.status === "canceled" && "bg-red-500/20 text-red-400",
                       task.status === "archived" &&
                         "bg-muted text-muted-foreground",
                     )}
@@ -330,9 +342,11 @@ export default function TasksPage() {
                           "bg-orange-500/20 text-orange-400",
                         task.estimationStatus === "overestimated" &&
                           "bg-purple-500/20 text-purple-400",
+                        task.estimationStatus === "on_track" &&
+                          "bg-green-500/20 text-green-400",
                       )}
                     >
-                      {task.estimationStatus}
+                      {task.estimationStatus === "on_track" ? "on track" : task.estimationStatus}
                     </span>
                   </div>
                 )}
@@ -364,9 +378,11 @@ export default function TasksPage() {
                               "bg-orange-500/20 text-orange-400 border border-orange-500/30",
                             selectedTask.estimationStatus === "overestimated" &&
                               "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+                            selectedTask.estimationStatus === "on_track" &&
+                              "bg-green-500/20 text-green-400 border border-green-500/30",
                           )}
                         >
-                          {selectedTask.estimationStatus}
+                          {selectedTask.estimationStatus === "on_track" ? "on track" : selectedTask.estimationStatus}
                         </span>
                       )}
                     </div>
@@ -733,6 +749,7 @@ export default function TasksPage() {
                         <option value="">Select status...</option>
                         <option value="underestimated">Underestimated</option>
                         <option value="overestimated">Overestimated</option>
+                        <option value="on_track">On Track</option>
                       </select>
                     </div>
                     {selectedTask.estimationStatus && selectedTask.estimationReason && (
@@ -752,12 +769,14 @@ export default function TasksPage() {
                     <div className="flex flex-col gap-3">
                       <label className="text-sm font-medium">Task Status</label>
                       <select
-                        value={selectedTask.status === "completed" ? "completed" : "active"}
+                        value={selectedTask.status}
                         onChange={(e) => handleTaskStatusChange(e.target.value)}
                         className="px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       >
+                        <option value="pending">Pending</option>
                         <option value="active">Active</option>
                         <option value="completed">Done</option>
+                        <option value="canceled">Canceled</option>
                       </select>
                     </div>
                   </div>
@@ -1177,7 +1196,7 @@ function EstimationStatusModal({
   onClose,
   onSubmit,
 }: {
-  estimationStatus: "underestimated" | "overestimated";
+  estimationStatus: "underestimated" | "overestimated" | "on_track";
   onClose: () => void;
   onSubmit: (reason: string) => void;
 }) {
@@ -1204,7 +1223,7 @@ function EstimationStatusModal({
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold">Mark as {estimationStatus}</h2>
+        <h2 className="text-2xl font-bold">Mark as {estimationStatus === "on_track" ? "on track" : estimationStatus}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">
@@ -1213,7 +1232,7 @@ function EstimationStatusModal({
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={`Why was this task ${estimationStatus}?`}
+              placeholder={`Why was this task ${estimationStatus === "on_track" ? "on track" : estimationStatus}?`}
               rows={4}
               className="w-full px-4 mt-8 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
