@@ -1,7 +1,7 @@
 import Dexie, { type Table } from "dexie";
 
-export type TaskStatus = "active" | "completed" | "archived";
-export type EstimationStatus = "underestimated" | "overestimated" | null;
+export type TaskStatus = "active" | "completed" | "archived" | "pending" | "canceled";
+export type EstimationStatus = "underestimated" | "overestimated" | "on_track" | null;
 
 export interface Task {
   id?: number;

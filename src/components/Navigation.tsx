@@ -12,6 +12,7 @@ import {
   Sun,
   Moon,
   BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -35,6 +36,12 @@ const routes = [
     label: "Track",
     icon: Clock,
     href: "/track",
+    color: "text-primary",
+  },
+  {
+    label: "Analyze",
+    icon: TrendingUp,
+    href: "/analyze",
     color: "text-primary",
   },
   {
