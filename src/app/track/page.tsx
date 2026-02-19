@@ -4,9 +4,10 @@ import { useEffect, useState, useMemo } from 'react'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useTimeEntryStore } from '@/store/useTimeEntryStore'
 import { getDateString, formatDate, parseTimeInput, formatTime } from '@/lib/utils'
-import { Plus, X, Clock, Calendar, Sparkles, ChevronLeft, ChevronRight, Pencil, Check } from 'lucide-react'
+import { X, Clock, Calendar, ChevronLeft, ChevronRight, Pencil, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PageTransition } from '@/components/PageTransition'
+import { TaskDrawer } from '@/components/TaskDrawer'
 import { db } from '@/lib/db'
 import toast from 'react-hot-toast'
 
@@ -30,6 +31,7 @@ export default function TrackPage() {
   const [dayNotes, setDayNotes] = useState('')
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null)
   const [editingTimeInput, setEditingTimeInput] = useState('')
+  const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null)
 
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
@@ -344,8 +346,14 @@ export default function TrackPage() {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ delay: index * 0.03 }}
               >
-                <div className="flex-1">
-                  <div className="font-medium text-sm">{entry.taskName}</div>
+                <div className="flex-1 min-w-0">
+                  <button
+                    onClick={() => setDrawerTaskId(entry.taskId)}
+                    className="font-medium text-sm hover:text-primary transition-colors text-left truncate w-full"
+                    title="View task details"
+                  >
+                    {entry.taskName}
+                  </button>
                 </div>
                 {editingEntryId === entry.id ? (
                   <>
@@ -400,15 +408,21 @@ export default function TrackPage() {
             </AnimatePresence>
 
             {dailyEntries.map((entry, index) => (
-              <motion.div 
-                key={index} 
+              <motion.div
+                key={index}
                 className="flex items-center gap-3 p-3 border border-primary rounded-lg bg-primary/5"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
               >
-                <div className="flex-1">
-                  <div className="font-medium text-sm">{entry.taskName}</div>
+                <div className="flex-1 min-w-0">
+                  <button
+                    onClick={() => setDrawerTaskId(entry.taskId)}
+                    className="font-medium text-sm hover:text-primary transition-colors text-left truncate w-full"
+                    title="View task details"
+                  >
+                    {entry.taskName}
+                  </button>
                 </div>
                 <input
                   type="text"
@@ -492,6 +506,8 @@ export default function TrackPage() {
         </motion.div>
       </div>
     </div>
+
+      <TaskDrawer taskId={drawerTaskId} onClose={() => setDrawerTaskId(null)} />
     </PageTransition>
   )
 }

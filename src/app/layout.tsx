@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
-import { Navigation } from '@/components/Navigation'
+import { AppShell } from '@/components/AppShell'
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
 })
@@ -22,12 +22,9 @@ export default function RootLayout({
   return (
     <html lang="it" className="dark">
       <body className={`${inter.className} antialiased`}>
-        <div className="flex h-screen overflow-hidden bg-background">
-          <Navigation />
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
-        </div>
+        <AppShell>
+          {children}
+        </AppShell>
         <Toaster
           position="top-right"
           toastOptions={{
