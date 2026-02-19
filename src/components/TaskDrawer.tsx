@@ -89,7 +89,7 @@ export function TaskDrawer({ taskId, onClose }: TaskDrawerProps) {
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <Link
-                  href={`/tasks/${task.id}`}
+                  href={`/tasks?id=${task.id}`}
                   className="p-2 hover:bg-accent rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                   title="View full task details"
                   onClick={onClose}
@@ -266,7 +266,7 @@ export function TaskDrawer({ taskId, onClose }: TaskDrawerProps) {
             {/* Footer CTA */}
             <div className="flex-shrink-0 p-4 border-t border-border">
               <Link
-                href={`/tasks/${task.id}`}
+                href={`/tasks?id=${task.id}`}
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium"
                 onClick={onClose}
               >
