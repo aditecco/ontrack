@@ -7,6 +7,7 @@ import { formatDateTime, formatTime, parseTimeInput } from '@/lib/utils'
 import { FileText, Trash2, Sparkles, Pencil, Check, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PageTransition } from '@/components/PageTransition'
+import { TaskDrawer } from '@/components/TaskDrawer'
 import toast from 'react-hot-toast'
 
 export default function LogPage() {
@@ -16,6 +17,7 @@ export default function LogPage() {
   const [editingTimeInput, setEditingTimeInput] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchTasks()
@@ -168,7 +170,13 @@ export default function LogPage() {
                         {entry.date}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium">{entry.taskName}</div>
+                        <button
+                          onClick={() => setDrawerTaskId(entry.taskId)}
+                          className="font-medium hover:text-primary transition-colors text-left"
+                          title="View task details"
+                        >
+                          {entry.taskName}
+                        </button>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         {entry.customer}
@@ -329,6 +337,8 @@ export default function LogPage() {
         )}
       </div>
     </div>
+
+      <TaskDrawer taskId={drawerTaskId} onClose={() => setDrawerTaskId(null)} />
     </PageTransition>
   )
 }
