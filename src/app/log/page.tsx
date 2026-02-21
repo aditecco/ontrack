@@ -179,7 +179,7 @@ export default function LogPage() {
                       <td className="px-6 py-4">
                         <button
                           onClick={() => setDrawerTaskId(entry.taskId)}
-                          className="font-medium hover:text-primary transition-colors text-left"
+                          className="font-medium hover:text-primary hover:underline transition-colors text-left"
                           title="View task details"
                         >
                           {entry.taskName}

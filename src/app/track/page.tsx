@@ -358,11 +358,14 @@ function TrackPageContent() {
                 <div className="flex-1 min-w-0">
                   <button
                     onClick={() => setDrawerTaskId(entry.taskId)}
-                    className="font-medium text-sm hover:text-primary transition-colors text-left truncate w-full"
+                    className="font-medium text-sm hover:text-primary hover:underline transition-colors text-left truncate w-full"
                     title="View task details"
                   >
                     {entry.taskName}
                   </button>
+                  {entry.notes && (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>
+                  )}
                 </div>
                 {editingEntryId === entry.id ? (
                   <>
@@ -427,7 +430,7 @@ function TrackPageContent() {
                 <div className="flex-1 min-w-0">
                   <button
                     onClick={() => setDrawerTaskId(entry.taskId)}
-                    className="font-medium text-sm hover:text-primary transition-colors text-left truncate w-full"
+                    className="font-medium text-sm hover:text-primary hover:underline transition-colors text-left truncate w-full"
                     title="View task details"
                   >
                     {entry.taskName}

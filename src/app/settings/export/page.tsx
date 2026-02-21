@@ -21,16 +21,29 @@ export default function ExportSettingsPage() {
 
   async function exportDatabase() {
     try {
-      const tasks = await db.tasks.toArray();
-      const timeEntries = await db.timeEntries.toArray();
-      const dayNotes = await db.dayNotes.toArray();
+      const [tasks, timeEntries, dayNotes, tags, taskTags, reports, reportPresets, reportTemplates] =
+        await Promise.all([
+          db.tasks.toArray(),
+          db.timeEntries.toArray(),
+          db.dayNotes.toArray(),
+          db.tags.toArray(),
+          db.taskTags.toArray(),
+          db.reports.toArray(),
+          db.reportPresets.toArray(),
+          db.reportTemplates.toArray(),
+        ]);
 
       const data = {
-        version: 2,
+        version: 3,
         exportDate: new Date().toISOString(),
         tasks,
         timeEntries,
         dayNotes,
+        tags,
+        taskTags,
+        reports,
+        reportPresets,
+        reportTemplates,
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -64,13 +77,11 @@ export default function ExportSettingsPage() {
       const text = await file.text();
       const data = JSON.parse(text);
 
-      // Validate the import data
       if (!data.tasks || !data.timeEntries) {
         toast.error("Invalid backup file format");
         return;
       }
 
-      // Store the data and show confirmation dialog
       setPendingImportData(data);
       setShowImportConfirm(true);
     } catch (error) {
@@ -78,7 +89,6 @@ export default function ExportSettingsPage() {
       console.error(error);
     }
 
-    // Reset the file input
     if (event.target) {
       event.target.value = "";
     }
@@ -88,67 +98,133 @@ export default function ExportSettingsPage() {
     if (!pendingImportData) return;
 
     try {
-      // Clear existing data
       await db.transaction(
         "rw",
         db.tasks,
         db.timeEntries,
         db.dayNotes,
+        db.tags,
+        db.taskTags,
+        db.reports,
+        db.reportPresets,
+        db.reportTemplates,
         async () => {
-          await db.tasks.clear();
-          await db.timeEntries.clear();
-          await db.dayNotes.clear();
+          // Clear all tables
+          await Promise.all([
+            db.tasks.clear(),
+            db.timeEntries.clear(),
+            db.dayNotes.clear(),
+            db.tags.clear(),
+            db.taskTags.clear(),
+            db.reports.clear(),
+            db.reportPresets.clear(),
+            db.reportTemplates.clear(),
+          ]);
 
-          // Import tasks (remove id to let IndexedDB generate new ones)
+          // Tasks
           const tasksToImport = pendingImportData.tasks.map((task: any) => {
-            const { id, ...taskWithoutId } = task;
-            // Convert date strings back to Date objects
+            const { id, ...rest } = task;
             return {
-              ...taskWithoutId,
-              createdAt: new Date(taskWithoutId.createdAt),
-              updatedAt: new Date(taskWithoutId.updatedAt),
+              ...rest,
+              createdAt: new Date(rest.createdAt),
+              updatedAt: new Date(rest.updatedAt),
             };
           });
-          await db.tasks.bulkAdd(tasksToImport);
+          const newTaskIds = await db.tasks.bulkAdd(tasksToImport, { allKeys: true }) as number[];
 
-          // Import time entries
-          const timeEntriesToImport = pendingImportData.timeEntries.map(
-            (entry: any) => {
-              const { id, ...entryWithoutId } = entry;
-              return {
-                ...entryWithoutId,
-                createdAt: new Date(entryWithoutId.createdAt),
-              };
-            },
-          );
+          // Build old→new task ID map
+          const taskIdMap = new Map<number, number>();
+          pendingImportData.tasks.forEach((t: any, i: number) => {
+            taskIdMap.set(t.id, newTaskIds[i]);
+          });
+
+          // Time entries — remap taskId
+          const timeEntriesToImport = pendingImportData.timeEntries.map((entry: any) => {
+            const { id, ...rest } = entry;
+            return {
+              ...rest,
+              taskId: taskIdMap.get(rest.taskId) ?? rest.taskId,
+              createdAt: new Date(rest.createdAt),
+            };
+          });
           await db.timeEntries.bulkAdd(timeEntriesToImport);
 
-          // Import day notes (if they exist in the backup)
-          if (
-            pendingImportData.dayNotes &&
-            pendingImportData.dayNotes.length > 0
-          ) {
-            const dayNotesToImport = pendingImportData.dayNotes.map(
-              (note: any) => {
-                const { id, ...noteWithoutId } = note;
-                return {
-                  ...noteWithoutId,
-                  createdAt: new Date(noteWithoutId.createdAt),
-                  updatedAt: new Date(noteWithoutId.updatedAt),
-                };
-              },
-            );
+          // Day notes
+          if (pendingImportData.dayNotes?.length > 0) {
+            const dayNotesToImport = pendingImportData.dayNotes.map((note: any) => {
+              const { id, ...rest } = note;
+              return {
+                ...rest,
+                createdAt: new Date(rest.createdAt),
+                updatedAt: new Date(rest.updatedAt),
+              };
+            });
             await db.dayNotes.bulkAdd(dayNotesToImport);
+          }
+
+          // Tags — remap IDs for taskTags
+          if (pendingImportData.tags?.length > 0) {
+            const tagsToImport = pendingImportData.tags.map((tag: any) => {
+              const { id, ...rest } = tag;
+              return { ...rest, createdAt: new Date(rest.createdAt) };
+            });
+            const newTagIds = await db.tags.bulkAdd(tagsToImport, { allKeys: true }) as number[];
+
+            const tagIdMap = new Map<number, number>();
+            pendingImportData.tags.forEach((t: any, i: number) => {
+              tagIdMap.set(t.id, newTagIds[i]);
+            });
+
+            // TaskTags — remap both taskId and tagId
+            if (pendingImportData.taskTags?.length > 0) {
+              const taskTagsToImport = pendingImportData.taskTags.map((tt: any) => {
+                const { id, ...rest } = tt;
+                return {
+                  taskId: taskIdMap.get(rest.taskId) ?? rest.taskId,
+                  tagId: tagIdMap.get(rest.tagId) ?? rest.tagId,
+                };
+              });
+              await db.taskTags.bulkAdd(taskTagsToImport);
+            }
+          }
+
+          // Reports (content is self-contained; presetId/templateId are metadata only)
+          if (pendingImportData.reportPresets?.length > 0) {
+            const presetsToImport = pendingImportData.reportPresets.map((p: any) => {
+              const { id, ...rest } = p;
+              return {
+                ...rest,
+                createdAt: new Date(rest.createdAt),
+                updatedAt: new Date(rest.updatedAt),
+              };
+            });
+            await db.reportPresets.bulkAdd(presetsToImport);
+          }
+
+          if (pendingImportData.reportTemplates?.length > 0) {
+            const templatesToImport = pendingImportData.reportTemplates.map((t: any) => {
+              const { id, ...rest } = t;
+              return {
+                ...rest,
+                createdAt: new Date(rest.createdAt),
+                updatedAt: new Date(rest.updatedAt),
+              };
+            });
+            await db.reportTemplates.bulkAdd(templatesToImport);
+          }
+
+          if (pendingImportData.reports?.length > 0) {
+            const reportsToImport = pendingImportData.reports.map((r: any) => {
+              const { id, ...rest } = r;
+              return { ...rest, createdAt: new Date(rest.createdAt) };
+            });
+            await db.reports.bulkAdd(reportsToImport);
           }
         },
       );
 
-      toast.success("Database imported successfully. Reloading page...");
-
-      // Reload the page to refresh all data
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      toast.success("Database imported successfully. Reloading...");
+      setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
       toast.error("Failed to import database");
       console.error(error);
@@ -196,7 +272,7 @@ export default function ExportSettingsPage() {
                 <div>
                   <p className="font-medium">Export Database</p>
                   <p className="text-sm text-muted-foreground">
-                    Download all your tasks and time entries as JSON
+                    Download all your data as JSON — tasks, entries, notes, tags, and reports
                   </p>
                 </div>
                 <button
@@ -239,9 +315,8 @@ export default function ExportSettingsPage() {
                   <div>
                     <p className="font-medium text-sm">Local Storage</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      All data is stored locally in your browser using
-                      IndexedDB. No data is sent to external servers. Export
-                      regularly to backup your data.
+                      All data is stored locally in your browser using IndexedDB. No data is sent to
+                      external servers. Export regularly to backup your data.
                     </p>
                   </div>
                 </div>
@@ -262,34 +337,23 @@ export default function ExportSettingsPage() {
             <div className="flex items-start gap-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-lg font-semibold mb-1">
-                  Confirm Database Import
-                </h3>
+                <h3 className="text-lg font-semibold mb-1">Confirm Database Import</h3>
                 <p className="text-sm text-muted-foreground">
-                  This will replace all your current data with the imported
-                  data. This action cannot be undone.
+                  This will replace all your current data with the imported data. This action cannot be undone.
                 </p>
               </div>
             </div>
 
             {pendingImportData && (
-              <div className="mb-6 p-3 bg-accent/30 rounded border border-border">
-                <p className="text-sm">
-                  <span className="font-medium">Tasks:</span>{" "}
-                  {pendingImportData.tasks?.length || 0}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Time Entries:</span>{" "}
-                  {pendingImportData.timeEntries?.length || 0}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Day Notes:</span>{" "}
-                  {pendingImportData.dayNotes?.length || 0}
-                </p>
+              <div className="mb-6 p-3 bg-accent/30 rounded border border-border space-y-1">
+                <p className="text-sm"><span className="font-medium">Tasks:</span> {pendingImportData.tasks?.length || 0}</p>
+                <p className="text-sm"><span className="font-medium">Time Entries:</span> {pendingImportData.timeEntries?.length || 0}</p>
+                <p className="text-sm"><span className="font-medium">Day Notes:</span> {pendingImportData.dayNotes?.length || 0}</p>
+                <p className="text-sm"><span className="font-medium">Tags:</span> {pendingImportData.tags?.length || 0}</p>
+                <p className="text-sm"><span className="font-medium">Reports:</span> {pendingImportData.reports?.length || 0}</p>
                 {pendingImportData.exportDate && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Exported:{" "}
-                    {new Date(pendingImportData.exportDate).toLocaleString()}
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Exported: {new Date(pendingImportData.exportDate).toLocaleString()}
                   </p>
                 )}
               </div>

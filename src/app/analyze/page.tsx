@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTimeEntryStore } from "@/store/useTimeEntryStore";
 import { formatDecimalHours, cn } from "@/lib/utils";
@@ -29,13 +28,11 @@ import {
   Target,
   AlertTriangle,
   CheckCircle2,
-  ExternalLink,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
 
 export default function AnalyzePage() {
-  const router = useRouter();
   const { tasks, tags, fetchTasks, fetchTags, getTaskTags } = useTaskStore();
   const { timeEntries, fetchTimeEntries } = useTimeEntryStore();
   const [selectedTagId, setSelectedTagId] = useState<string>("");
@@ -295,7 +292,7 @@ export default function AnalyzePage() {
       >
         <div className="font-semibold mb-1 max-w-[200px] leading-tight">{d.name}</div>
         <div className="text-xs text-muted-foreground mb-2">{d.customer}</div>
-        <div className="space-y-0.5 mb-3">
+        <div className="space-y-0.5">
           <div>Estimated: <span className="font-medium">{d.estimated}h</span></div>
           <div>
             Actual:{" "}
@@ -309,13 +306,6 @@ export default function AnalyzePage() {
             )}
           </div>
         </div>
-        <button
-          onClick={() => router.push(`/tasks?id=${d.id}`)}
-          className="flex items-center gap-1 text-xs text-primary hover:underline"
-        >
-          <ExternalLink className="w-3 h-3" />
-          View task
-        </button>
       </div>
     );
   }
