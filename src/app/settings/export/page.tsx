@@ -100,14 +100,7 @@ export default function ExportSettingsPage() {
     try {
       await db.transaction(
         "rw",
-        db.tasks,
-        db.timeEntries,
-        db.dayNotes,
-        db.tags,
-        db.taskTags,
-        db.reports,
-        db.reportPresets,
-        db.reportTemplates,
+        [db.tasks, db.timeEntries, db.dayNotes, db.tags, db.taskTags, db.reports, db.reportPresets, db.reportTemplates],
         async () => {
           // Clear all tables
           await Promise.all([
