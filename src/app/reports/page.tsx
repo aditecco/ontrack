@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useReportStore } from "@/store/useReportStore";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Code2, Download, FileText, FilePen, Trash2 } from "lucide-react";
-import { motion } from "framer-motion";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import toast from "react-hot-toast";
@@ -181,15 +180,59 @@ ${sanitizedHtml}
     <>
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-border flex-shrink-0 print:hidden">
-          <h1 className="text-2xl font-bold mb-1.5">{report.title}</h1>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span>
-              {formatDate(report.dateRange.from)} –{" "}
-              {formatDate(report.dateRange.to)}
-            </span>
-            <span>·</span>
-            <span>Generated {formatDateTime(report.createdAt)}</span>
+        <div className="px-6 py-5 border-b border-border flex-shrink-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-bold mb-1.5">{report.title}</h1>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>
+                  {formatDate(report.dateRange.from)} –{" "}
+                  {formatDate(report.dateRange.to)}
+                </span>
+                <span>·</span>
+                <span>Generated {formatDateTime(report.createdAt)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleExportMarkdown}
+                className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="Download Markdown"
+              >
+                <Download className="w-4 h-4" />
+                <span>.md</span>
+              </button>
+
+              <button
+                onClick={handleExportHtml}
+                className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="Export as HTML"
+              >
+                <Code2 className="w-4 h-4" />
+                <span>HTML</span>
+              </button>
+
+              <Link
+                href={`/reports/pdf?id=${report.id}`}
+                className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="View as PDF"
+              >
+                <FilePen className="w-4 h-4" />
+                <span>View PDF</span>
+              </Link>
+
+              <div className="w-px h-5 bg-border mx-1" />
+
+              <button
+                onClick={handleDelete}
+                className="px-3 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="Delete report"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -215,69 +258,6 @@ ${sanitizedHtml}
           />
         </div>
 
-        {/* Action bar */}
-        <motion.div
-          initial={{ y: 60 }}
-          animate={{ y: 0 }}
-          className="border-t border-border bg-card/95 backdrop-blur-sm flex-shrink-0 print:hidden"
-        >
-          <div className="px-6 py-3 flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
-              {report.includedDayNotes && "Includes daily notes"}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Download .md */}
-              <button
-                onClick={handleExportMarkdown}
-                className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm"
-                title="Download Markdown"
-              >
-                <Download className="w-4 h-4" />
-                <span>.md</span>
-              </button>
-
-              {/* Export HTML */}
-              <button
-                onClick={handleExportHtml}
-                className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm"
-                title="Export as HTML"
-              >
-                <Code2 className="w-4 h-4" />
-                <span>HTML</span>
-              </button>
-
-              {/* View as PDF */}
-              <Link
-                href={`/reports/pdf?id=${report.id}`}
-                className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-opacity text-sm"
-                title="View as PDF"
-              >
-                <FilePen className="w-4 h-4" />
-                <span>View PDF</span>
-              </Link>
-
-              <div className="w-px h-5 bg-border mx-1" />
-
-              {/* Delete */}
-              <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 px-3 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors text-sm"
-                title="Delete report"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Print styles */}
-        <style jsx global>{`
-          @media print {
-            .print\\:hidden { display: none !important; }
-            article { max-width: 100% !important; }
-          }
-        `}</style>
       </div>
 
       {/* Task drawer — rendered outside the flex column so it overlays correctly */}
