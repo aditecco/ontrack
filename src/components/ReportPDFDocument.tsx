@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import type { Style } from "@react-pdf/types";
 import { marked } from "marked";
 import type { Report } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -31,7 +32,7 @@ function InlineText({
   style,
 }: {
   raw: string;
-  style: Record<string, unknown>;
+  style: Style;
 }) {
   const parts = parseInline(raw);
   // If no formatting, skip nesting overhead
