@@ -1,104 +1,89 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { PageTransition } from "@/components/PageTransition";
-import {
-  FileText,
-  Plus,
-  Download,
-  Trash2,
-  Eye,
-  Calendar,
-} from "lucide-react";
-import { motion } from "framer-motion";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useReportStore } from "@/store/useReportStore";
-import { generateReport } from "@/lib/reportGenerator";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { Code2, Download, FileText, FilePen, Trash2 } from "lucide-react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import toast from "react-hot-toast";
-import { initializeDefaultReportSettings } from "@/lib/reportConstants";
-import { db } from "@/lib/db";
+import type { Report } from "@/lib/db";
+import { TaskDrawer } from "@/components/TaskDrawer";
 
-export default function ReportsPage() {
+function ReportDetailContent() {
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const {
-    reports,
-    presets,
-    templates,
-    fetchReports,
-    fetchPresets,
-    fetchTemplates,
-    addReport,
-    deleteReport,
-  } = useReportStore();
+  const { reports, fetchReports, deleteReport } = useReportStore();
 
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
-    null
-  );
-  const [reportTitle, setReportTitle] = useState("");
+  const [report, setReport] = useState<Report | null>(null);
+  const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null);
+
+  const articleRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    async function init() {
-      await initializeDefaultReportSettings(db);
-      await fetchReports();
-      await fetchPresets();
-      await fetchTemplates();
-    }
-    init();
-  }, [fetchReports, fetchPresets, fetchTemplates]);
+    fetchReports();
+  }, [fetchReports]);
 
-  async function handleGenerateReport() {
-    if (!selectedPresetId || !selectedTemplateId) {
-      toast.error("Please select both a preset and a template");
+  // Resolve report from URL param
+  useEffect(() => {
+    const reportId = searchParams.get("id");
+
+    if (!reportId) {
+      setReport(null);
+      setSanitizedHtml("");
       return;
     }
 
-    if (!reportTitle.trim()) {
-      toast.error("Please enter a report title");
+    if (reports.length === 0) return;
+
+    const found = reports.find((r) => r.id === Number(reportId));
+
+    if (!found) {
+      setReport(null);
       return;
     }
 
-    setIsGenerating(true);
-    try {
-      const preset = presets.find((p) => p.id === selectedPresetId);
-      const template = templates.find((t) => t.id === selectedTemplateId);
+    setReport(found);
+    setIsLoading(true);
 
-      if (!preset || !template) {
-        toast.error("Invalid preset or template");
-        return;
-      }
+    async function processMarkdown() {
+      const rawHtml = await marked(found?.content ?? "");
+      const sanitized = DOMPurify.sanitize(rawHtml);
+      setSanitizedHtml(sanitized);
+      setIsLoading(false);
+    }
 
-      const { content, dateRange } = await generateReport(
-        preset,
-        template,
-        reportTitle
+    processMarkdown();
+  }, [reports, searchParams]);
+
+  // Intercept task links → open TaskDrawer instead of navigating
+  useEffect(() => {
+    const el = articleRef.current;
+    if (!el || !report) return;
+
+    function handleClick(e: MouseEvent) {
+      const link = (e.target as Element).closest<HTMLAnchorElement>(
+        'a[href^="/tasks?id="]'
       );
-
-      await addReport({
-        title: reportTitle,
-        content,
-        presetId: selectedPresetId,
-        templateId: selectedTemplateId,
-        dateRange,
-        includedDayNotes: preset.includeDayNotes,
-      });
-
-      setReportTitle("");
-      setSelectedPresetId(null);
-      setSelectedTemplateId(null);
-      setShowGenerateModal(false);
-    } catch (error) {
-      console.error("Failed to generate report:", error);
-      toast.error("Failed to generate report");
-    } finally {
-      setIsGenerating(false);
+      if (!link) return;
+      e.preventDefault();
+      const href = link.getAttribute("href") ?? link.href;
+      const idStr = new URLSearchParams(href.split("?")[1]).get("id");
+      if (idStr) setDrawerTaskId(Number(idStr));
     }
-  }
 
-  function handleExportText(report: any) {
+    el.addEventListener("click", handleClick);
+    return () => el.removeEventListener("click", handleClick);
+  }, [report, sanitizedHtml]);
+
+  // ── Export helpers ────────────────────────────────────────────────────────────
+
+  function handleExportMarkdown() {
+    if (!report) return;
     const blob = new Blob([report.content], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -108,216 +93,192 @@ export default function ReportsPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Report exported as text");
+    toast.success("Exported as Markdown");
   }
 
-  async function handleDeleteReport(id: number) {
+  function handleExportHtml() {
+    if (!report) return;
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${report.title}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 820px; margin: 0 auto; padding: 48px 24px; color: #111827; line-height: 1.6; }
+    h1 { font-size: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: .5rem; margin-bottom: .25rem; }
+    h2 { font-size: 1.4rem; margin-top: 2rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.25rem; color: #1d4ed8; }
+    a { color: #1d4ed8; }
+    ul, ol { padding-left: 1.5rem; }
+    li { margin-bottom: .25rem; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-size: .875em; font-family: monospace; }
+    pre { background: #f3f4f6; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+    strong { font-weight: 600; }
+    .meta { color: #6b7280; font-size: .8rem; margin-top: 2.5rem; }
+  </style>
+</head>
+<body>
+${sanitizedHtml}
+<p class="meta">Period: ${formatDate(report.dateRange.from)} – ${formatDate(report.dateRange.to)} &middot; Generated ${formatDateTime(report.createdAt)}</p>
+</body>
+</html>`;
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${report.title.replace(/\s+/g, "-").toLowerCase()}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Exported as HTML");
+  }
+
+  async function handleDelete() {
+    if (!report) return;
     if (confirm("Are you sure you want to delete this report?")) {
-      await deleteReport(id);
+      await deleteReport(report.id!);
+      router.push("/reports");
     }
   }
 
-  return (
-    <PageTransition>
-      <div className="h-full p-8 overflow-auto">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="flex items-center justify-between"
-          >
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Reports</h1>
-              <p className="text-muted-foreground text-sm">
-                Generate and manage your work reports
-              </p>
-            </div>
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Generate Report</span>
-            </button>
-          </motion.div>
+  // ── Render ────────────────────────────────────────────────────────────────────
 
-          {/* Reports List */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            className="space-y-4"
-          >
-            {reports.length === 0 ? (
-              <div className="bg-card border border-border rounded-lg p-12 text-center">
-                <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">No reports yet</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Generate your first report to get started
-                </p>
-                <button
-                  onClick={() => setShowGenerateModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Generate Report</span>
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {reports.map((report) => (
-                  <motion.div
-                    key={report.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-card border border-border rounded-lg p-5 hover:border-primary/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg mb-1">
-                          {report.title}
-                        </h3>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          <span>
-                            {formatDate(report.dateRange.from)} -{" "}
-                            {formatDate(report.dateRange.to)}
-                          </span>
-                        </div>
-                      </div>
-                      <FileText className="w-5 h-5 text-primary" />
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                      <span>
-                        Generated {formatDateTime(report.createdAt)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => router.push(`/reports/view?id=${report.id}`)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-opacity text-sm"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span>View</span>
-                      </button>
-                      <button
-                        onClick={() => handleExportText(report)}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm"
-                        title="Export as Markdown"
-                      >
-                        <Download className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteReport(report.id!)}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors text-sm"
-                        title="Delete report"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </motion.div>
+  if (!searchParams.get("id")) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold mb-2">No report selected</h3>
+          <p className="text-sm text-muted-foreground">
+            Select a report from the list, or generate a new one
+          </p>
         </div>
       </div>
+    );
+  }
 
-      {/* Generate Report Modal */}
-      {showGenerateModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => setShowGenerateModal(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl w-full"
-          >
-            <h2 className="text-xl font-semibold mb-4">Generate Report</h2>
+  if (isLoading || (searchParams.get("id") && !report)) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-muted-foreground text-sm">Loading report...</div>
+      </div>
+    );
+  }
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Report Title
-                </label>
-                <input
-                  type="text"
-                  value={reportTitle}
-                  onChange={(e) => setReportTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                  placeholder="e.g., Weekly Report - Dec 15-22"
-                />
-              </div>
+  if (!report) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-muted-foreground text-sm">Report not found</div>
+      </div>
+    );
+  }
 
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Select Preset
-                </label>
-                <select
-                  value={selectedPresetId || ""}
-                  onChange={(e) =>
-                    setSelectedPresetId(
-                      e.target.value ? Number(e.target.value) : null
-                    )
-                  }
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                >
-                  <option value="">Choose a preset...</option>
-                  {presets.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Select Template
-                </label>
-                <select
-                  value={selectedTemplateId || ""}
-                  onChange={(e) =>
-                    setSelectedTemplateId(
-                      e.target.value ? Number(e.target.value) : null
-                    )
-                  }
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                >
-                  <option value="">Choose a template...</option>
-                  {templates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
+  return (
+    <>
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-border flex-shrink-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-bold mb-1.5">{report.title}</h1>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>
+                  {formatDate(report.dateRange.from)} –{" "}
+                  {formatDate(report.dateRange.to)}
+                </span>
+                <span>·</span>
+                <span>Generated {formatDateTime(report.createdAt)}</span>
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end mt-6">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={() => setShowGenerateModal(false)}
-                disabled={isGenerating}
-                className="px-4 py-2 bg-accent rounded-lg hover:bg-accent/80 transition-colors disabled:opacity-50"
+                onClick={handleExportMarkdown}
+                className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="Download Markdown"
               >
-                Cancel
+                <Download className="w-4 h-4" />
+                <span>.md</span>
               </button>
+
               <button
-                onClick={handleGenerateReport}
-                disabled={isGenerating}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                onClick={handleExportHtml}
+                className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="Export as HTML"
               >
-                {isGenerating ? "Generating..." : "Generate"}
+                <Code2 className="w-4 h-4" />
+                <span>HTML</span>
+              </button>
+
+              <Link
+                href={`/reports/pdf?id=${report.id}`}
+                className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="View as PDF"
+              >
+                <FilePen className="w-4 h-4" />
+                <span>View PDF</span>
+              </Link>
+
+              <div className="w-px h-5 bg-border mx-1" />
+
+              <button
+                onClick={handleDelete}
+                className="px-3 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                title="Delete report"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete</span>
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
-      )}
-    </PageTransition>
+
+        {/* Rendered markdown */}
+        <div className="flex-1 overflow-auto p-6 print:p-8">
+          <article
+            ref={articleRef}
+            className="prose prose-slate dark:prose-invert max-w-none
+              prose-headings:font-semibold
+              prose-h1:text-3xl prose-h1:border-b prose-h1:border-border prose-h1:pb-2 prose-h1:mb-6
+              prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:font-bold
+              prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h3:font-semibold
+              prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-a:cursor-pointer
+              prose-p:text-foreground prose-p:mb-4 prose-p:leading-relaxed
+              prose-strong:text-foreground prose-strong:font-bold
+              prose-ul:list-disc prose-ul:ml-6 prose-ul:mb-4 prose-ul:space-y-2
+              prose-ol:list-decimal prose-ol:ml-6 prose-ol:mb-4 prose-ol:space-y-2
+              prose-li:text-foreground prose-li:leading-relaxed prose-li:marker:text-foreground
+              prose-code:text-foreground prose-code:bg-accent prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+              prose-pre:bg-accent prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
+              print:prose-p:text-black print:prose-li:text-black print:prose-headings:text-black"
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          />
+        </div>
+
+      </div>
+
+      {/* Task drawer — rendered outside the flex column so it overlays correctly */}
+      <TaskDrawer
+        taskId={drawerTaskId}
+        onClose={() => setDrawerTaskId(null)}
+      />
+    </>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+          Loading...
+        </div>
+      }
+    >
+      <ReportDetailContent />
+    </Suspense>
   );
 }

@@ -123,7 +123,7 @@ export function processTemplate(template: string, data: ReportData): string {
     tasksStr = '*No tasks recorded in this period*'
   } else {
     data.tasks.forEach(({ task, entries, totalHours, totalMinutes }) => {
-      tasksStr += `### ${task.name}\n`
+      tasksStr += `### [${task.name}](/tasks?id=${task.id})\n`
       tasksStr += `- **Customer:** ${task.customer}\n`
       tasksStr += `- **Time spent:** ${formatTime(totalHours, totalMinutes)}\n`
 
