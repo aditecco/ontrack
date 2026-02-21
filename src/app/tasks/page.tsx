@@ -57,6 +57,7 @@ function TaskDetailContent() {
   const [trackTimeError, setTrackTimeError] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
   const [editingTimeInput, setEditingTimeInput] = useState("");
+  const [editingNotes, setEditingNotes] = useState("");
 
   useEffect(() => {
     fetchTasks();
@@ -177,17 +178,29 @@ function TaskDetailContent() {
     setTrackTimeError(false);
   };
 
-  const handleEditEntry = (id: number, hours: number, minutes: number) => {
+  const handleEditEntry = (id: number, hours: number, minutes: number, notes?: string) => {
     setEditingEntryId(id);
     setEditingTimeInput(formatTime(hours, minutes));
+    setEditingNotes(notes || "");
   };
 
   const handleEditSave = async (id: number) => {
     const parsed = parseTimeInput(editingTimeInput);
     if (!parsed || (parsed.hours === 0 && parsed.minutes === 0)) return;
-    await updateTimeEntry(id, { hours: parsed.hours, minutes: parsed.minutes });
+    await updateTimeEntry(id, {
+      hours: parsed.hours,
+      minutes: parsed.minutes,
+      notes: editingNotes.trim() || undefined,
+    });
     setEditingEntryId(null);
     setEditingTimeInput("");
+    setEditingNotes("");
+  };
+
+  const handleEditCancel = () => {
+    setEditingEntryId(null);
+    setEditingTimeInput("");
+    setEditingNotes("");
   };
 
   // Empty state
@@ -653,69 +666,108 @@ function TaskDetailContent() {
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
                 Recent Entries
               </div>
-              <div className="space-y-1">
-                {taskEntries.map((entry) => (
-                  <motion.div
-                    key={entry.id}
-                    layout
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent/50 transition-colors group"
-                  >
-                    <span className="text-xs text-muted-foreground w-20 flex-shrink-0">
-                      {formatDate(new Date(entry.date + "T12:00:00"))}
-                    </span>
-                    {editingEntryId === entry.id ? (
-                      <input
-                        type="text"
-                        value={editingTimeInput}
-                        onChange={(e) => setEditingTimeInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleEditSave(entry.id!);
-                          if (e.key === "Escape") setEditingEntryId(null);
-                        }}
-                        autoFocus
-                        className="flex-1 px-2 py-0.5 bg-background border border-primary rounded text-sm focus:outline-none"
-                      />
-                    ) : (
-                      <span className="text-sm font-medium flex-1">
-                        {formatTime(entry.hours, entry.minutes)}
-                      </span>
-                    )}
-                    {entry.notes && editingEntryId !== entry.id && (
-                      <span className="text-xs text-muted-foreground truncate max-w-[120px] hidden sm:block">
-                        {entry.notes}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                      {editingEntryId === entry.id ? (
-                        <button
-                          onClick={() => handleEditSave(entry.id!)}
-                          className="p-1 hover:bg-green-500/20 text-green-500 rounded transition-colors"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            handleEditEntry(
-                              entry.id!,
-                              entry.hours,
-                              entry.minutes,
-                            )
-                          }
-                          className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
+              <div className="rounded-lg overflow-hidden border border-border/50">
+                {taskEntries.map((entry, index) => {
+                  const isEditing = editingEntryId === entry.id;
+                  return (
+                    <motion.div
+                      key={entry.id}
+                      layout
+                      onClick={() => !isEditing && router.push(`/track?date=${entry.date}`)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 transition-colors group",
+                        index % 2 === 0 ? "bg-accent/20" : "bg-background",
+                        !isEditing && "cursor-pointer hover:bg-accent/50",
+                        isEditing && "cursor-default",
                       )}
-                      <button
-                        onClick={() => deleteTimeEntry(entry.id!)}
-                        className="p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded transition-colors"
+                    >
+                      <span className="text-xs text-muted-foreground w-20 flex-shrink-0">
+                        {formatDate(new Date(entry.date + "T12:00:00"))}
+                      </span>
+
+                      {isEditing ? (
+                        <div className="flex-1 flex gap-2 min-w-0">
+                          <input
+                            type="text"
+                            value={editingTimeInput}
+                            onChange={(e) => setEditingTimeInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleEditSave(entry.id!);
+                              if (e.key === "Escape") handleEditCancel();
+                            }}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="2:30 · 1,5"
+                            className="w-28 flex-shrink-0 px-2 py-0.5 bg-background border border-primary rounded text-sm focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={editingNotes}
+                            onChange={(e) => setEditingNotes(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="Notes (optional)"
+                            className="flex-1 min-w-0 px-2 py-0.5 bg-background border border-border rounded text-sm focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium">
+                            {formatTime(entry.hours, entry.minutes)}
+                          </span>
+                          {entry.notes && (
+                            <span className="text-xs text-muted-foreground ml-2 truncate">
+                              {entry.notes}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div
+                        className={cn(
+                          "flex items-center gap-1 flex-shrink-0 transition-opacity",
+                          isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                        )}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => handleEditSave(entry.id!)}
+                              className="p-1 hover:bg-green-500/20 text-green-500 rounded transition-colors"
+                              title="Save"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={handleEditCancel}
+                              className="p-1 hover:bg-accent text-muted-foreground hover:text-foreground rounded transition-colors"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditEntry(entry.id!, entry.hours, entry.minutes, entry.notes)}
+                              className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
+                              title="Edit"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => deleteTimeEntry(entry.id!)}
+                              className="p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
           );

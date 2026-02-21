@@ -6,9 +6,9 @@ import { Plus, Menu, Zap, Clock, ClipboardList, BarChart2, X } from "lucide-reac
 import { Navigation } from "./Navigation";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { QuickTrackModal } from "./QuickTrackModal";
+import { CreateReportModal } from "./CreateReportModal";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTimeEntryStore } from "@/store/useTimeEntryStore";
-import { useRouter } from "next/navigation";
 
 const fabActions = [
   {
@@ -31,11 +31,11 @@ const fabActions = [
 type FabActionId = (typeof fabActions)[number]["id"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showQuickTrackModal, setShowQuickTrackModal] = useState(false);
+  const [showCreateReportModal, setShowCreateReportModal] = useState(false);
   const { fetchTasks, fetchTags } = useTaskStore();
   const { fetchTimeEntries } = useTimeEntryStore();
   const fabRef = useRef<HTMLDivElement>(null);
@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setFabOpen(false);
     if (id === "task") setShowCreateModal(true);
     else if (id === "tracking") setShowQuickTrackModal(true);
-    else if (id === "report") router.push("/reports");
+    else if (id === "report") setShowCreateReportModal(true);
   }
 
   return (
@@ -189,6 +189,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         {showQuickTrackModal && (
           <QuickTrackModal onClose={() => setShowQuickTrackModal(false)} />
+        )}
+        {showCreateReportModal && (
+          <CreateReportModal onClose={() => setShowCreateReportModal(false)} />
         )}
       </AnimatePresence>
     </div>

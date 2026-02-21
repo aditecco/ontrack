@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useTimeEntryStore } from '@/store/useTimeEntryStore'
 import { getDateString, formatDate, parseTimeInput, formatTime } from '@/lib/utils'
@@ -19,10 +20,18 @@ type DailyEntry = {
   minutes: number
 }
 
-export default function TrackPage() {
+function TrackPageContent() {
+  const searchParams = useSearchParams()
+  const dateParam = searchParams.get('date')
   const { tasks, fetchTasks } = useTaskStore()
   const { addTimeEntry, updateTimeEntry, fetchTimeEntries, timeEntries } = useTimeEntryStore()
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(() => {
+    if (dateParam) {
+      const d = new Date(dateParam + 'T12:00:00')
+      if (!isNaN(d.getTime())) return d
+    }
+    return new Date()
+  })
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -509,5 +518,19 @@ export default function TrackPage() {
 
       <TaskDrawer taskId={drawerTaskId} onClose={() => setDrawerTaskId(null)} />
     </PageTransition>
+  )
+}
+
+export default function TrackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-full flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <TrackPageContent />
+    </Suspense>
   )
 }
