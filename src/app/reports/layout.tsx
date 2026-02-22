@@ -4,11 +4,12 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useReportStore } from "@/store/useReportStore";
-import { formatDateTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
+import { useDateFormat } from "@/hooks/useDateFormat";
 
 function ReportsSidebarContent() {
+  const { formatDateTime } = useDateFormat();
   const searchParams = useSearchParams();
   const selectedReportId = searchParams.get("id")
     ? parseInt(searchParams.get("id")!)

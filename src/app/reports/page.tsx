@@ -4,8 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useReportStore } from "@/store/useReportStore";
-import { formatDate, formatDateTime } from "@/lib/utils";
 import { Code2, Copy, Download, FileText, FilePen, Trash2, X } from "lucide-react";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import toast from "react-hot-toast";
@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 function ReportDetailContent() {
+  const { formatDate, formatDateTime } = useDateFormat();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { reports, fetchReports, deleteReport } = useReportStore();

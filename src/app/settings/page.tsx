@@ -3,17 +3,21 @@
 import { useState } from "react";
 import { PageTransition } from "@/components/PageTransition";
 import {
-  Settings,
   Sun,
   Moon,
   FileText,
   Database,
   ChevronRight,
+  Calendar,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { DATE_FORMAT_OPTIONS } from "@/lib/utils";
 
 export default function SettingsPage() {
+  const { dateFormat, setDateFormat } = useDateFormat();
+
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark")
@@ -68,12 +72,14 @@ export default function SettingsPage() {
 
           {/* Appearance Section */}
           <motion.div
-            className="bg-card border border-border rounded-lg p-6"
+            className="bg-card border border-border rounded-lg p-6 space-y-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
           >
-            <h2 className="text-xl font-semibold mb-4">Appearance</h2>
+            <h2 className="text-xl font-semibold">Appearance</h2>
+
+            {/* Theme toggle */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Theme</p>
@@ -97,6 +103,39 @@ export default function SettingsPage() {
                   </>
                 )}
               </button>
+            </div>
+
+            <div className="border-t border-border" />
+
+            {/* Date format */}
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <p className="font-medium">Date format</p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  How dates are displayed across the app. Data is always stored
+                  as ISO (YYYY-MM-DD) internally.
+                </p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                {DATE_FORMAT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setDateFormat(opt.value)}
+                    className={[
+                      "px-3 py-2 rounded-lg border text-sm transition-colors font-mono",
+                      dateFormat === opt.value
+                        ? "border-primary bg-primary/10 text-primary font-semibold"
+                        : "border-border hover:border-primary/50 hover:bg-accent/50 text-muted-foreground",
+                    ].join(" ")}
+                    title={opt.label}
+                  >
+                    {opt.example}
+                  </button>
+                ))}
+              </div>
             </div>
           </motion.div>
 

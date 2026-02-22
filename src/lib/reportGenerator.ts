@@ -1,5 +1,5 @@
 import { db, type Task, type TimeEntry, type DayNote, type ReportPreset, type ReportTemplate } from './db'
-import { formatDate, formatTime, getDateString } from './utils'
+import { formatDate, formatTime, getDateString, getStoredDateFormat } from './utils'
 
 export interface ReportData {
   dateRange: {
@@ -104,13 +104,14 @@ export async function fetchReportData(dateRange: { from: string; to: string }, i
  */
 export function processTemplate(template: string, data: ReportData): string {
   let content = template
+  const fmt = getStoredDateFormat()
 
   // Replace dateRange
-  const dateRangeStr = `${formatDate(data.dateRange.from)} - ${formatDate(data.dateRange.to)}`
+  const dateRangeStr = `${formatDate(data.dateRange.from, fmt)} - ${formatDate(data.dateRange.to, fmt)}`
   content = content.replace(/{{dateRange}}/g, dateRangeStr)
 
   // Replace generatedDate
-  const generatedDate = formatDate(new Date())
+  const generatedDate = formatDate(new Date(), fmt)
   content = content.replace(/{{generatedDate}}/g, generatedDate)
 
   // Replace summary
@@ -131,7 +132,7 @@ export function processTemplate(template: string, data: ReportData): string {
         tasksStr += `- **Entries:** ${entries.length}\n`
         entries.forEach(entry => {
           const entryTime = formatTime(entry.hours, entry.minutes)
-          const entryDate = formatDate(entry.date)
+          const entryDate = formatDate(entry.date, fmt)
           tasksStr += `  - ${entryDate}: ${entryTime}`
           if (entry.notes) {
             tasksStr += ` - ${entry.notes}`
@@ -174,7 +175,7 @@ export function processTemplate(template: string, data: ReportData): string {
     })
 
     byDate.forEach((entries, date) => {
-      entriesByDateStr += `### ${formatDate(date)}\n\n`
+      entriesByDateStr += `### ${formatDate(date, fmt)}\n\n`
       entries.forEach(entry => {
         const time = formatTime(entry.hours, entry.minutes)
         entriesByDateStr += `- **[${entry.taskName}](/tasks?id=${entry.taskId})** (${entry.customer}): ${time}`
@@ -192,7 +193,7 @@ export function processTemplate(template: string, data: ReportData): string {
   if (data.dayNotes.length > 0) {
     let dayNotesStr = ''
     data.dayNotes.forEach(note => {
-      dayNotesStr += `### ${formatDate(note.date)}\n\n${note.notes}\n\n`
+      dayNotesStr += `### ${formatDate(note.date, fmt)}\n\n${note.notes}\n\n`
     })
     // Remove the conditional block markers and keep the content
     content = content.replace(/{{#if dayNotes}}[\s\S]*?{{dayNotes}}[\s\S]*?{{\/if}}/g, (match) => {

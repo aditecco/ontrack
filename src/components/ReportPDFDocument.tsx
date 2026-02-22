@@ -8,7 +8,7 @@ import {
 import type { Style } from "@react-pdf/types";
 import { marked } from "marked";
 import type { Report } from "@/lib/db";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime, type DateFormat } from "@/lib/utils";
 
 // ── Inline markdown parser ─────────────────────────────────────────────────────
 // Handles **bold** and [link text](url) → shows link text only
@@ -216,9 +216,10 @@ function renderToken(token: ReturnType<typeof marked.lexer>[number], i: number) 
 
 interface Props {
   report: Report;
+  dateFormat?: DateFormat;
 }
 
-export function ReportPDFDocument({ report }: Props) {
+export function ReportPDFDocument({ report, dateFormat = 'dd/mm/yyyy' }: Props) {
   const tokens = marked.lexer(report.content);
 
   return (
@@ -227,9 +228,9 @@ export function ReportPDFDocument({ report }: Props) {
         {tokens.map((token, i) => renderToken(token, i))}
         <View style={{ marginTop: 24 }}>
           <Text style={S.meta}>
-            Period: {formatDate(report.dateRange.from)} –{" "}
-            {formatDate(report.dateRange.to)} · Generated{" "}
-            {formatDateTime(report.createdAt)}
+            Period: {formatDate(report.dateRange.from, dateFormat)} –{" "}
+            {formatDate(report.dateRange.to, dateFormat)} · Generated{" "}
+            {formatDateTime(report.createdAt, dateFormat)}
           </Text>
         </View>
       </Page>
