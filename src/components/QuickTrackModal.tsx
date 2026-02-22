@@ -94,7 +94,7 @@ export function QuickTrackModal({
       onClick={onClose}
     >
       <motion.div
-        className="bg-card border border-border rounded-lg p-6 w-full max-w-md"
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}

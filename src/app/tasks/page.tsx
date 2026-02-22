@@ -8,12 +8,12 @@ import {
   formatTime,
   formatDecimalHours,
   formatCurrency,
-  formatDate,
   parseTimeInput,
   getDateString,
   cn,
 } from "@/lib/utils";
-import { Trash2, Download, ExternalLink, Pencil, X, Clock, Plus, Check } from "lucide-react";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { Trash2, Download, ExternalLink, Pencil, X, Clock, Plus, Check, CheckCircle2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Task, Tag } from "@/lib/db";
@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 // ── Task detail panel ─────────────────────────────────────────────────────────
 
 function TaskDetailContent() {
+  const { formatDate } = useDateFormat();
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawId = searchParams.get("id");
@@ -594,7 +595,13 @@ function TaskDetailContent() {
           <h2 className="text-xl font-bold">Track Time</h2>
         </div>
 
-        {/* Entry form */}
+        {/* Disabled notice for completed tasks */}
+        {selectedTask.status === "completed" ? (
+          <div className="flex items-center gap-2.5 px-4 py-3 mb-6 bg-accent/60 border border-border rounded-lg text-sm text-muted-foreground">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-green-500" />
+            <span>This task is done — time tracking is disabled.</span>
+          </div>
+        ) : (
         <form onSubmit={handleTrackSubmit} className="space-y-3 mb-6">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -653,6 +660,7 @@ function TaskDetailContent() {
             </button>
           </div>
         </form>
+        )}
 
         {/* Recent entries for this task */}
         {(() => {

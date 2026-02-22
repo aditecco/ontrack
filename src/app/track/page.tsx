@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useTimeEntryStore } from '@/store/useTimeEntryStore'
-import { getDateString, formatDate, parseTimeInput, formatTime } from '@/lib/utils'
+import { getDateString, parseTimeInput, formatTime } from '@/lib/utils'
+import { useDateFormat } from '@/hooks/useDateFormat'
 import { X, Clock, Calendar, ChevronLeft, ChevronRight, Pencil, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PageTransition } from '@/components/PageTransition'
@@ -21,6 +22,7 @@ type DailyEntry = {
 }
 
 function TrackPageContent() {
+  const { formatDate } = useDateFormat()
   const searchParams = useSearchParams()
   const dateParam = searchParams.get('date')
   const { tasks, fetchTasks } = useTaskStore()

@@ -4,15 +4,18 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useReportStore } from "@/store/useReportStore";
-import { formatDate, formatDateTime } from "@/lib/utils";
-import { Code2, Download, FileText, FilePen, Trash2 } from "lucide-react";
+import { Code2, Copy, Download, FileText, FilePen, Trash2, X } from "lucide-react";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import toast from "react-hot-toast";
 import type { Report } from "@/lib/db";
 import { TaskDrawer } from "@/components/TaskDrawer";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 function ReportDetailContent() {
+  const { formatDate, formatDateTime } = useDateFormat();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { reports, fetchReports, deleteReport } = useReportStore();
@@ -22,6 +25,10 @@ function ReportDetailContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [reportsReady, setReportsReady] = useState(false);
   const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null);
+
+  // Source drawer
+  const [isSourceOpen, setIsSourceOpen] = useState(false);
+  const [sourceTab, setSourceTab] = useState<"md" | "html">("md");
 
   const articleRef = useRef<HTMLElement>(null);
 
@@ -81,25 +88,11 @@ function ReportDetailContent() {
     return () => el.removeEventListener("click", handleClick);
   }, [report, sanitizedHtml]);
 
-  // ── Export helpers ────────────────────────────────────────────────────────────
+  // ── Source helpers ────────────────────────────────────────────────────────────
 
-  function handleExportMarkdown() {
-    if (!report) return;
-    const blob = new Blob([report.content], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${report.title.replace(/\s+/g, "-").toLowerCase()}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Exported as Markdown");
-  }
-
-  function handleExportHtml() {
-    if (!report) return;
-    const html = `<!DOCTYPE html>
+  function buildHtmlSource(): string {
+    if (!report) return "";
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -125,16 +118,39 @@ ${sanitizedHtml}
 <p class="meta">Period: ${formatDate(report.dateRange.from)} – ${formatDate(report.dateRange.to)} &middot; Generated ${formatDateTime(report.createdAt)}</p>
 </body>
 </html>`;
-    const blob = new Blob([html], { type: "text/html" });
+  }
+
+  function getSourceContent(): string {
+    if (!report) return "";
+    return sourceTab === "md" ? report.content : buildHtmlSource();
+  }
+
+  function getSourceFilename(): string {
+    if (!report) return "report";
+    const slug = report.title.replace(/\s+/g, "-").toLowerCase();
+    return sourceTab === "md" ? `${slug}.md` : `${slug}.html`;
+  }
+
+  function handleCopySource() {
+    const content = getSourceContent();
+    navigator.clipboard.writeText(content).then(() => {
+      toast.success(`Copied ${sourceTab.toUpperCase()} to clipboard`);
+    });
+  }
+
+  function handleDownloadSource() {
+    const content = getSourceContent();
+    const mimeType = sourceTab === "md" ? "text/markdown" : "text/html";
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${report.title.replace(/\s+/g, "-").toLowerCase()}.html`;
+    a.download = getSourceFilename();
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Exported as HTML");
+    toast.success(`Downloaded as ${sourceTab.toUpperCase()}`);
   }
 
   async function handleDelete() {
@@ -194,7 +210,7 @@ ${sanitizedHtml}
 
   return (
     <>
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col relative">
         {/* Header */}
         <div className="px-6 py-5 border-b border-border flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -212,21 +228,14 @@ ${sanitizedHtml}
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={handleExportMarkdown}
+                onClick={() => {
+                  setIsSourceOpen(true);
+                }}
                 className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
-                title="Download Markdown"
-              >
-                <Download className="w-4 h-4" />
-                <span>.md</span>
-              </button>
-
-              <button
-                onClick={handleExportHtml}
-                className="px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
-                title="Export as HTML"
+                title="View source"
               >
                 <Code2 className="w-4 h-4" />
-                <span>HTML</span>
+                <span>View Source</span>
               </button>
 
               <Link
@@ -274,6 +283,80 @@ ${sanitizedHtml}
           />
         </div>
 
+        {/* Source drawer — slides up from bottom, covers the report area */}
+        <AnimatePresence>
+          {isSourceOpen && (
+            <motion.div
+              className="absolute inset-0 bg-card flex flex-col z-10"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            >
+              {/* Drawer toolbar */}
+              <div className="flex items-center justify-between px-6 py-3 border-b border-border flex-shrink-0">
+                {/* Tabs */}
+                <div className="flex gap-1 p-1 bg-accent rounded-lg">
+                  <button
+                    onClick={() => setSourceTab("md")}
+                    className={cn(
+                      "px-3 py-1 rounded text-sm font-medium transition-colors",
+                      sourceTab === "md"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Markdown
+                  </button>
+                  <button
+                    onClick={() => setSourceTab("html")}
+                    className={cn(
+                      "px-3 py-1 rounded text-sm font-medium transition-colors",
+                      sourceTab === "html"
+                        ? "bg-card shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    HTML
+                  </button>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopySource}
+                    className="px-3 py-1.5 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy
+                  </button>
+                  <button
+                    onClick={handleDownloadSource}
+                    className="px-3 py-1.5 bg-accent hover:bg-accent/80 rounded-lg transition-colors text-sm font-medium flex items-center gap-2"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download
+                  </button>
+                  <div className="w-px h-5 bg-border mx-1" />
+                  <button
+                    onClick={() => setIsSourceOpen(false)}
+                    className="p-1.5 hover:bg-accent rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Code block */}
+              <div className="flex-1 overflow-auto p-6">
+                <pre className="w-full h-full bg-accent rounded-lg p-4 text-xs font-mono text-foreground overflow-auto whitespace-pre-wrap break-words leading-relaxed">
+                  <code>{getSourceContent()}</code>
+                </pre>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Task drawer — rendered outside the flex column so it overlays correctly */}

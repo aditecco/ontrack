@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useTimeEntryStore } from '@/store/useTimeEntryStore'
-import { formatDateTime, formatTime, parseTimeInput } from '@/lib/utils'
+import { formatTime, parseTimeInput } from '@/lib/utils'
+import { useDateFormat } from '@/hooks/useDateFormat'
 import { FileText, Trash2, Sparkles, Pencil, Check, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PageTransition } from '@/components/PageTransition'
@@ -12,6 +13,7 @@ import { TaskDrawer } from '@/components/TaskDrawer'
 import toast from 'react-hot-toast'
 
 export default function LogPage() {
+  const { formatDate, formatDateTime } = useDateFormat()
   const { tasks, fetchTasks } = useTaskStore()
   const { timeEntries, fetchTimeEntries, updateTimeEntry, deleteTimeEntry } = useTimeEntryStore()
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null)
@@ -173,7 +175,7 @@ export default function LogPage() {
                           className="hover:text-primary hover:underline transition-colors"
                           title="View this day in Track"
                         >
-                          {entry.date}
+                          {formatDate(entry.date)}
                         </Link>
                       </td>
                       <td className="px-6 py-4">

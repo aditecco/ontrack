@@ -4,12 +4,14 @@ import { PDFViewer, PDFDownloadLink } from "@react-pdf/renderer";
 import { ReportPDFDocument } from "./ReportPDFDocument";
 import { Download } from "lucide-react";
 import type { Report } from "@/lib/db";
+import { useDateFormat } from "@/hooks/useDateFormat";
 
 interface Props {
   report: Report;
 }
 
 export function ReportPDFViewer({ report }: Props) {
+  const { dateFormat } = useDateFormat();
   const fileName = `${report.title.replace(/\s+/g, "-").toLowerCase()}.pdf`;
 
   return (
@@ -17,7 +19,7 @@ export function ReportPDFViewer({ report }: Props) {
       {/* Toolbar */}
       <div className="flex items-center justify-end px-4 py-2 border-b border-border bg-card flex-shrink-0">
         <PDFDownloadLink
-          document={<ReportPDFDocument report={report} />}
+          document={<ReportPDFDocument report={report} dateFormat={dateFormat} />}
           fileName={fileName}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity text-sm"
         >
@@ -32,7 +34,7 @@ export function ReportPDFViewer({ report }: Props) {
 
       {/* PDF iframe */}
       <PDFViewer width="100%" height="100%" showToolbar={false} className="flex-1 border-0">
-        <ReportPDFDocument report={report} />
+        <ReportPDFDocument report={report} dateFormat={dateFormat} />
       </PDFViewer>
     </div>
   );
