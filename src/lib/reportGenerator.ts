@@ -144,6 +144,50 @@ export function processTemplate(template: string, data: ReportData): string {
   }
   content = content.replace(/{{tasks}}/g, tasksStr.trim())
 
+  // Replace entriesByDate — chronological view: groups all entries by date, showing task info inline
+  let entriesByDateStr = ''
+  if (data.tasks.length === 0) {
+    entriesByDateStr = '*No entries recorded in this period*'
+  } else {
+    // Collect all entries with their task info, then sort by date
+    const allEntries: Array<{ date: string; taskName: string; taskId: number; customer: string; hours: number; minutes: number; notes?: string }> = []
+    data.tasks.forEach(({ task, entries }) => {
+      entries.forEach(entry => {
+        allEntries.push({
+          date: entry.date,
+          taskName: task.name,
+          taskId: task.id!,
+          customer: task.customer,
+          hours: entry.hours,
+          minutes: entry.minutes,
+          notes: entry.notes,
+        })
+      })
+    })
+    allEntries.sort((a, b) => a.date.localeCompare(b.date))
+
+    // Group by date
+    const byDate = new Map<string, typeof allEntries>()
+    allEntries.forEach(entry => {
+      if (!byDate.has(entry.date)) byDate.set(entry.date, [])
+      byDate.get(entry.date)!.push(entry)
+    })
+
+    byDate.forEach((entries, date) => {
+      entriesByDateStr += `### ${formatDate(date)}\n\n`
+      entries.forEach(entry => {
+        const time = formatTime(entry.hours, entry.minutes)
+        entriesByDateStr += `- **[${entry.taskName}](/tasks?id=${entry.taskId})** (${entry.customer}): ${time}`
+        if (entry.notes) {
+          entriesByDateStr += ` — ${entry.notes}`
+        }
+        entriesByDateStr += '\n'
+      })
+      entriesByDateStr += '\n'
+    })
+  }
+  content = content.replace(/{{entriesByDate}}/g, entriesByDateStr.trim())
+
   // Replace dayNotes (with conditional block support)
   if (data.dayNotes.length > 0) {
     let dayNotesStr = ''
@@ -163,15 +207,19 @@ export function processTemplate(template: string, data: ReportData): string {
 }
 
 /**
- * Generate a complete report
+ * Generate a complete report.
+ * Pass `customDateRange` and `customIncludeDayNotes` to bypass preset date calculation.
  */
 export async function generateReport(
-  preset: ReportPreset,
+  preset: ReportPreset | null,
   template: ReportTemplate,
-  title?: string
+  title?: string,
+  customDateRange?: { from: string; to: string },
+  customIncludeDayNotes?: boolean
 ): Promise<{ content: string; dateRange: { from: string; to: string } }> {
-  const dateRange = calculateDateRange(preset)
-  const data = await fetchReportData(dateRange, preset.includeDayNotes)
+  const dateRange = customDateRange ?? calculateDateRange(preset!)
+  const includeDayNotes = customIncludeDayNotes ?? preset?.includeDayNotes ?? false
+  const data = await fetchReportData(dateRange, includeDayNotes)
   const content = processTemplate(template.content, data)
 
   return {

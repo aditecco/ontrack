@@ -8,17 +8,24 @@ import { useReportStore } from "@/store/useReportStore";
 import { generateReport } from "@/lib/reportGenerator";
 import { initializeDefaultReportSettings } from "@/lib/reportConstants";
 import { db } from "@/lib/db";
+import { getDateString, cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+
+type DateMode = "preset" | "custom";
 
 export function CreateReportModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { presets, templates, fetchPresets, fetchTemplates, addReport } =
     useReportStore();
 
+  const [dateMode, setDateMode] = useState<DateMode>("preset");
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
     null
   );
+  const [customFrom, setCustomFrom] = useState(getDateString());
+  const [customTo, setCustomTo] = useState(getDateString());
+  const [customIncludeDayNotes, setCustomIncludeDayNotes] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -50,8 +57,8 @@ export function CreateReportModal({ onClose }: { onClose: () => void }) {
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!selectedPresetId || !selectedTemplateId) {
-      toast.error("Please select both a preset and a template");
+    if (!selectedTemplateId) {
+      toast.error("Please select a template");
       return;
     }
     if (!reportTitle.trim()) {
@@ -59,39 +66,89 @@ export function CreateReportModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    const preset = presets.find((p) => p.id === selectedPresetId);
     const template = templates.find((t) => t.id === selectedTemplateId);
-    if (!preset || !template) {
-      toast.error("Invalid preset or template");
+    if (!template) {
+      toast.error("Invalid template");
       return;
     }
 
-    setIsGenerating(true);
-    try {
-      const { content, dateRange } = await generateReport(
-        preset,
-        template,
-        reportTitle
-      );
-
-      const reportId = await addReport({
-        title: reportTitle,
-        content,
-        presetId: selectedPresetId,
-        templateId: selectedTemplateId,
-        dateRange,
-        includedDayNotes: preset.includeDayNotes,
-      });
-
-      onClose();
-      if (reportId) {
-        router.push(`/reports?id=${reportId}`);
+    if (dateMode === "preset") {
+      if (!selectedPresetId) {
+        toast.error("Please select a preset");
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to generate report");
-    } finally {
-      setIsGenerating(false);
+      const preset = presets.find((p) => p.id === selectedPresetId);
+      if (!preset) {
+        toast.error("Invalid preset");
+        return;
+      }
+
+      setIsGenerating(true);
+      try {
+        const { content, dateRange } = await generateReport(
+          preset,
+          template,
+          reportTitle
+        );
+
+        const reportId = await addReport({
+          title: reportTitle,
+          content,
+          presetId: selectedPresetId,
+          templateId: selectedTemplateId,
+          dateRange,
+          includedDayNotes: preset.includeDayNotes,
+        });
+
+        onClose();
+        if (reportId) {
+          router.push(`/reports?id=${reportId}`);
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to generate report");
+      } finally {
+        setIsGenerating(false);
+      }
+    } else {
+      // Custom date range
+      if (!customFrom || !customTo) {
+        toast.error("Please set both from and to dates");
+        return;
+      }
+      if (customFrom > customTo) {
+        toast.error("Start date must be before end date");
+        return;
+      }
+
+      setIsGenerating(true);
+      try {
+        const { content, dateRange } = await generateReport(
+          null,
+          template,
+          reportTitle,
+          { from: customFrom, to: customTo },
+          customIncludeDayNotes
+        );
+
+        const reportId = await addReport({
+          title: reportTitle,
+          content,
+          templateId: selectedTemplateId,
+          dateRange,
+          includedDayNotes: customIncludeDayNotes,
+        });
+
+        onClose();
+        if (reportId) {
+          router.push(`/reports?id=${reportId}`);
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to generate report");
+      } finally {
+        setIsGenerating(false);
+      }
     }
   }
 
@@ -104,7 +161,7 @@ export function CreateReportModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <motion.div
-        className="bg-card border border-border rounded-lg p-6 w-full max-w-md"
+        className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
@@ -125,6 +182,7 @@ export function CreateReportModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={handleGenerate} className="space-y-4">
+          {/* Report title */}
           <div>
             <label className="block text-sm font-medium mb-2">
               Report Title
@@ -139,26 +197,112 @@ export function CreateReportModal({ onClose }: { onClose: () => void }) {
             />
           </div>
 
+          {/* Date mode toggle */}
           <div>
-            <label className="block text-sm font-medium mb-2">Preset</label>
-            <select
-              value={selectedPresetId ?? ""}
-              onChange={(e) =>
-                setSelectedPresetId(
-                  e.target.value ? Number(e.target.value) : null
-                )
-              }
-              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-            >
-              <option value="">Choose a preset…</option>
-              {presets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium mb-2">Date Range</label>
+            <div className="flex gap-1 p-1 bg-accent rounded-lg w-fit mb-4">
+              <button
+                type="button"
+                onClick={() => setDateMode("preset")}
+                className={cn(
+                  "px-4 py-1.5 rounded text-sm font-medium transition-colors",
+                  dateMode === "preset"
+                    ? "bg-card shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Preset
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateMode("custom")}
+                className={cn(
+                  "px-4 py-1.5 rounded text-sm font-medium transition-colors",
+                  dateMode === "custom"
+                    ? "bg-card shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Custom
+              </button>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {dateMode === "preset" ? (
+                <motion.div
+                  key="preset"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <select
+                    value={selectedPresetId ?? ""}
+                    onChange={(e) =>
+                      setSelectedPresetId(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  >
+                    <option value="">Choose a preset…</option>
+                    {presets.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </option>
+                    ))}
+                  </select>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="custom"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                  className="space-y-3"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">
+                        From
+                      </label>
+                      <input
+                        type="date"
+                        value={customFrom}
+                        onChange={(e) => setCustomFrom(e.target.value)}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-1">
+                        To
+                      </label>
+                      <input
+                        type="date"
+                        value={customTo}
+                        onChange={(e) => setCustomTo(e.target.value)}
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={customIncludeDayNotes}
+                      onChange={(e) =>
+                        setCustomIncludeDayNotes(e.target.checked)
+                      }
+                      className="rounded border-border"
+                    />
+                    Include day notes
+                  </label>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
+          {/* Template */}
           <div>
             <label className="block text-sm font-medium mb-2">Template</label>
             <select
