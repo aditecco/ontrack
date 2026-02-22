@@ -20,16 +20,19 @@ function ReportDetailContent() {
   const [report, setReport] = useState<Report | null>(null);
   const [sanitizedHtml, setSanitizedHtml] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [reportsReady, setReportsReady] = useState(false);
   const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null);
 
   const articleRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    fetchReports();
+    fetchReports().then(() => setReportsReady(true));
   }, [fetchReports]);
 
   // Resolve report from URL param
   useEffect(() => {
+    if (!reportsReady) return;
+
     const reportId = searchParams.get("id");
 
     if (!reportId) {
@@ -37,8 +40,6 @@ function ReportDetailContent() {
       setSanitizedHtml("");
       return;
     }
-
-    if (reports.length === 0) return;
 
     const found = reports.find((r) => r.id === Number(reportId));
 
@@ -58,7 +59,7 @@ function ReportDetailContent() {
     }
 
     processMarkdown();
-  }, [reports, searchParams]);
+  }, [reports, searchParams, reportsReady]);
 
   // Intercept task links → open TaskDrawer instead of navigating
   useEffect(() => {
@@ -153,25 +154,40 @@ ${sanitizedHtml}
           <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold mb-2">No report selected</h3>
           <p className="text-sm text-muted-foreground">
-            Select a report from the list, or generate a new one
+            Select a report from the list, or generate one via the{" "}
+            <span className="font-medium text-foreground">+</span> button
           </p>
         </div>
       </div>
     );
   }
 
-  if (isLoading || (searchParams.get("id") && !report)) {
+  // Still fetching from DB
+  if (!reportsReady || isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Loading report...</div>
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  // Fetch done but ID not matched
   if (!report) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Report not found</div>
+        <div className="text-center">
+          <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-40" />
+          <h3 className="text-lg font-semibold mb-2">Report not found</h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            No report with ID <code className="bg-accent px-1.5 py-0.5 rounded text-xs">{searchParams.get("id")}</code> exists.
+          </p>
+          <button
+            onClick={() => router.push("/reports")}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+          >
+            Back to Reports
+          </button>
+        </div>
       </div>
     );
   }

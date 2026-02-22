@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useTimeEntryStore } from '@/store/useTimeEntryStore'
 import { formatDateTime, formatTime, parseTimeInput } from '@/lib/utils'
@@ -167,12 +168,18 @@ export default function LogPage() {
                       className={index % 2 === 0 ? 'bg-background/50' : ''}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {entry.date}
+                        <Link
+                          href={`/track?date=${entry.date}`}
+                          className="hover:text-primary hover:underline transition-colors"
+                          title="View this day in Track"
+                        >
+                          {entry.date}
+                        </Link>
                       </td>
                       <td className="px-6 py-4">
                         <button
                           onClick={() => setDrawerTaskId(entry.taskId)}
-                          className="font-medium hover:text-primary transition-colors text-left"
+                          className="font-medium hover:text-primary hover:underline transition-colors text-left"
                           title="View task details"
                         >
                           {entry.taskName}

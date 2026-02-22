@@ -143,7 +143,9 @@ export default function AnalyzePage() {
       .map((t) => {
         const actual = taskActualHours.get(t.id!) || 0;
         return {
+          id: t.id!,
           name: t.name,
+          customer: t.customer,
           estimated: t.estimatedHours,
           actual: Number(actual.toFixed(1)),
           status: t.estimationStatus || "none",
@@ -278,6 +280,35 @@ export default function AnalyzePage() {
     borderRadius: "0.5rem",
     color: "hsl(var(--card-foreground))",
   };
+
+  function ScatterTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: (typeof estimatedVsActual)[number] }> }) {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    const overBudget = d.actual > d.estimated;
+    return (
+      <div
+        className="p-3 rounded-lg shadow-lg border text-sm"
+        style={tooltipStyle}
+      >
+        <div className="font-semibold mb-1 max-w-[200px] leading-tight">{d.name}</div>
+        <div className="text-xs text-muted-foreground mb-2">{d.customer}</div>
+        <div className="space-y-0.5">
+          <div>Estimated: <span className="font-medium">{d.estimated}h</span></div>
+          <div>
+            Actual:{" "}
+            <span className={cn("font-medium", overBudget ? "text-red-500" : "text-green-600")}>
+              {d.actual}h
+            </span>
+            {overBudget && (
+              <span className="text-xs text-red-500 ml-1">
+                (+{(d.actual - d.estimated).toFixed(1)}h over)
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>
@@ -573,16 +604,7 @@ export default function AnalyzePage() {
                     }}
                   />
                   <ZAxis range={[60, 200]} />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value: number) => `${value}h`}
-                    labelFormatter={(label) => {
-                      const item = estimatedVsActual.find(
-                        (d) => d.estimated === label
-                      );
-                      return item?.name || "";
-                    }}
-                  />
+                  <Tooltip content={<ScatterTooltip />} />
                   <Scatter
                     data={estimatedVsActual}
                     fill="hsl(210 90% 60%)"
@@ -592,8 +614,8 @@ export default function AnalyzePage() {
                         key={index}
                         fill={
                           entry.actual > entry.estimated
-                            ? "#f97316"
-                            : "#22c55e"
+                            ? "#dc2626"
+                            : "#16a34a"
                         }
                       />
                     ))}
