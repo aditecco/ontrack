@@ -16,6 +16,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -26,6 +27,7 @@ const routes = [
   { label: "Dashboard", icon: Home, href: "/" },
   { label: "Tasks", icon: ListTodo, href: "/tasks" },
   { label: "Track", icon: Clock, href: "/track" },
+  { label: "Plan", icon: CalendarDays, href: "/plan" },
   { label: "Analyze", icon: TrendingUp, href: "/analyze" },
   { label: "Log", icon: FileText, href: "/log" },
   { label: "Reports", icon: BarChart3, href: "/reports" },
