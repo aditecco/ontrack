@@ -483,7 +483,7 @@ function WeekView({
       {queuedTasks.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Queued — won't fit this week
+            Queued &mdash; won&apos;t fit this week
           </p>
           <div className="space-y-1">
             {queuedTasks.map((p) => (
