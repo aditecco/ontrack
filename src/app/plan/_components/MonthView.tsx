@@ -11,6 +11,7 @@ interface MonthViewProps {
   month: number; // 0-based
   weeklyCapacity: number;
   onRemove: (id: number) => void;
+  onTaskClick: (taskId: number) => void;
 }
 
 export function MonthView({
@@ -19,6 +20,7 @@ export function MonthView({
   month,
   weeklyCapacity,
   onRemove,
+  onTaskClick,
 }: MonthViewProps) {
   const weeks = weeksInMonth(year, month);
   const todayWeekStart = startOfWeek(new Date());
@@ -50,10 +52,8 @@ export function MonthView({
       <div>
         {/* Header */}
         <div
-          className="grid gap-1 mb-1"
-          style={{
-            gridTemplateColumns: `180px repeat(${weeks.length}, 1fr)`,
-          }}
+          className="grid gap-1 mb-2"
+          style={{ gridTemplateColumns: `200px repeat(${weeks.length}, 1fr)` }}
         >
           <div />
           {weeks.map((ws, i) => {
@@ -62,7 +62,7 @@ export function MonthView({
               <div key={i} className="text-center">
                 <p
                   className={cn(
-                    "text-[10px] font-medium",
+                    "text-sm font-medium",
                     isCurrent ? "text-primary" : "text-muted-foreground",
                   )}
                 >
@@ -70,7 +70,7 @@ export function MonthView({
                 </p>
                 <p
                   className={cn(
-                    "text-[10px]",
+                    "text-sm",
                     isCurrent ? "text-primary" : "text-muted-foreground/60",
                   )}
                 >
@@ -82,7 +82,7 @@ export function MonthView({
         </div>
 
         {/* Task rows */}
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {packed.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
               No tasks in the plan yet.
@@ -92,9 +92,7 @@ export function MonthView({
             <div
               key={p.planTask.id}
               className="grid gap-1 items-center group"
-              style={{
-                gridTemplateColumns: `180px repeat(${weeks.length}, 1fr)`,
-              }}
+              style={{ gridTemplateColumns: `200px repeat(${weeks.length}, 1fr)` }}
             >
               {/* Label */}
               <div className="flex items-center gap-1.5 min-w-0 pr-2">
@@ -102,13 +100,18 @@ export function MonthView({
                   onClick={() => onRemove(p.planTask.id!)}
                   className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive"
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium truncate" title={p.task.name}>
+                  <button
+                    type="button"
+                    onClick={() => onTaskClick(p.task.id!)}
+                    className="text-sm font-medium truncate hover:text-primary transition-colors text-left w-full block"
+                    title={p.task.name}
+                  >
                     {p.task.name}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground truncate">
+                  </button>
+                  <p className="text-sm text-muted-foreground truncate">
                     {p.remainingHours.toFixed(1)}h left
                   </p>
                 </div>
@@ -125,7 +128,7 @@ export function MonthView({
                 const isCurrent = ws.getTime() === todayWeekStart.getTime();
 
                 return (
-                  <div key={wi} className="relative h-6">
+                  <div key={wi} className="relative h-8">
                     <div
                       className={cn(
                         "absolute inset-0 rounded",
@@ -148,10 +151,10 @@ export function MonthView({
 
         {/* Capacity footer */}
         <div
-          className="grid gap-1 mt-2"
-          style={{ gridTemplateColumns: `180px repeat(${weeks.length}, 1fr)` }}
+          className="grid gap-1 mt-3"
+          style={{ gridTemplateColumns: `200px repeat(${weeks.length}, 1fr)` }}
         >
-          <div className="text-[10px] text-muted-foreground text-right pr-2">
+          <div className="text-sm text-muted-foreground text-right pr-2">
             Capacity used
           </div>
           {weeks.map((_, wi) => {
@@ -165,7 +168,7 @@ export function MonthView({
               <div key={wi} className="text-center">
                 <p
                   className={cn(
-                    "text-[10px] font-mono font-semibold",
+                    "text-sm font-mono font-semibold",
                     used > weeklyCapacity ? "text-amber-500" : "text-muted-foreground",
                   )}
                 >

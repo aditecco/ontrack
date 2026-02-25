@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { format } from "date-fns";
 import { GripVertical, Trash2 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { type PlanTask } from "@/lib/db";
 import { SortableRow } from "./SortableRow";
@@ -28,6 +29,7 @@ interface WeekViewProps {
   weeklyCapacity: number;
   onReorder: (newOrder: PlanTask[]) => void;
   onRemove: (id: number) => void;
+  onTaskClick: (taskId: number) => void;
 }
 
 export function WeekView({
@@ -36,10 +38,10 @@ export function WeekView({
   weeklyCapacity,
   onReorder,
   onRemove,
+  onTaskClick,
 }: WeekViewProps) {
   const weekEnd = addDays(weekStart, 6);
   const weekIndex = weekIndexFromNow(weekStart);
-  // Past weeks show the same as week 0 (no offset)
   const weekOffsetHours = Math.max(weekIndex, 0) * weeklyCapacity;
 
   const thisWeekTasks = packed.filter(
@@ -57,7 +59,6 @@ export function WeekView({
     return sum + Math.max(e - s, 0);
   }, 0);
 
-  const capacityPct = Math.min((totalScheduled / weeklyCapacity) * 100, 100);
   const over = totalScheduled > weeklyCapacity;
 
   const sensors = useSensors(
@@ -76,53 +77,67 @@ export function WeekView({
 
   const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
-  return (
-    <div className="space-y-4">
-      {/* Week date range */}
-      <p className="text-xs text-muted-foreground">
-        {format(weekStart, "EEEE d MMMM")} – {format(weekEnd, "EEEE d MMMM yyyy")}
-      </p>
+  const pieData = [
+    { name: "Scheduled", value: Math.min(totalScheduled, weeklyCapacity) },
+    { name: "Available", value: Math.max(weeklyCapacity - totalScheduled, 0) },
+  ];
+  const pieColor = over ? "#f59e0b" : "hsl(var(--primary))";
 
-      {/* Capacity bar */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Week capacity</span>
-          <span
+  return (
+    <div className="space-y-5">
+      {/* Capacity header — label left, donut right */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold leading-tight">Week capacity</h2>
+          <p
             className={cn(
-              "font-mono font-semibold",
-              over ? "text-amber-500" : "text-foreground",
+              "text-lg font-mono font-semibold mt-0.5",
+              over ? "text-amber-500" : "text-muted-foreground",
             )}
           >
             {totalScheduled.toFixed(1)}h / {weeklyCapacity}h
-          </span>
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {format(weekStart, "EEEE d MMMM")} – {format(weekEnd, "EEEE d MMMM yyyy")}
+          </p>
+          {/* Day ticks */}
+          <div className="flex mt-2">
+            {dayLabels.map((d) => (
+              <span
+                key={d}
+                className="text-sm text-muted-foreground/60"
+                style={{ width: "20%" }}
+              >
+                {d}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="h-2 bg-accent/40 rounded-full overflow-hidden">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all",
-              over ? "bg-amber-500" : "bg-primary",
-            )}
-            style={{ width: `${capacityPct}%` }}
-          />
-        </div>
-        <div className="flex justify-between">
-          {dayLabels.map((d, i) => (
-            <span
-              key={d}
-              className="text-[10px] text-muted-foreground/60"
-              style={{
-                width: "20%",
-                textAlign: i === 0 ? "left" : i === 4 ? "right" : "center",
-              }}
-            >
-              {d}
-            </span>
-          ))}
+
+        <div className="flex-shrink-0 w-20 h-20">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={27}
+                outerRadius={38}
+                dataKey="value"
+                startAngle={90}
+                endAngle={-270}
+                stroke="none"
+              >
+                <Cell fill={pieColor} />
+                <Cell fill="hsl(var(--accent))" />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
       {/* Column headers */}
-      <div className="flex items-center gap-3 px-3 text-xs text-muted-foreground">
+      <div className="flex items-center gap-3 px-3 text-sm text-muted-foreground">
         <div className="w-4 flex-shrink-0" />
         <div className="w-48 flex-shrink-0">Task</div>
         <div className="w-20 flex-shrink-0 text-right">Remaining</div>
@@ -153,6 +168,7 @@ export function WeekView({
                 weeklyCapacity={weeklyCapacity}
                 weekOffsetHours={weekOffsetHours}
                 onRemove={() => onRemove(p.planTask.id!)}
+                onTaskClick={onTaskClick}
               />
             ))}
           </div>
@@ -162,27 +178,29 @@ export function WeekView({
       {/* Queued tasks */}
       {queuedTasks.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Queued &mdash; won&apos;t fit this week
           </p>
           <div className="space-y-1">
             {queuedTasks.map((p) => (
               <div
                 key={p.planTask.id}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border/40 bg-card/30 opacity-60"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg border border-border/40 bg-card/30 opacity-60"
               >
                 <GripVertical className="w-4 h-4 text-muted-foreground/30 flex-shrink-0" />
                 <div className="flex-shrink-0 w-48 min-w-0">
-                  <p className="text-sm font-medium truncate">{p.task.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {p.task.customer}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onTaskClick(p.task.id!)}
+                    className="text-sm font-medium truncate hover:text-primary transition-colors text-left w-full block"
+                  >
+                    {p.task.name}
+                  </button>
+                  <p className="text-sm text-muted-foreground truncate">{p.task.customer}</p>
                 </div>
                 <div className="flex-shrink-0 text-right w-20">
-                  <p className="text-sm font-mono font-semibold">
-                    {p.remainingHours.toFixed(1)}h
-                  </p>
-                  <p className="text-xs text-muted-foreground">remaining</p>
+                  <p className="text-sm font-mono font-semibold">{p.remainingHours.toFixed(1)}h</p>
+                  <p className="text-sm text-muted-foreground">remaining</p>
                 </div>
                 <div className="flex-1" />
                 <button

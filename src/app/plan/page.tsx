@@ -9,6 +9,7 @@ import { useWeeklyCapacity } from "@/hooks/useWeeklyCapacity";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TaskDrawer } from "@/components/TaskDrawer";
 import {
   addWeeks,
   formatMonthLabel,
@@ -31,6 +32,7 @@ export default function PlanPage() {
   const [view, setView] = useState<"week" | "month">("week");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [monthDate, setMonthDate] = useState(() => new Date());
+  const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchPlanTasks();
@@ -168,6 +170,7 @@ export default function PlanPage() {
                     weeklyCapacity={weeklyCapacity}
                     onReorder={handleReorder}
                     onRemove={removePlanTask}
+                    onTaskClick={setDrawerTaskId}
                   />
                 </motion.div>
               ) : (
@@ -184,6 +187,7 @@ export default function PlanPage() {
                     month={monthDate.getMonth()}
                     weeklyCapacity={weeklyCapacity}
                     onRemove={removePlanTask}
+                    onTaskClick={setDrawerTaskId}
                   />
                 </motion.div>
               )}
@@ -204,6 +208,8 @@ export default function PlanPage() {
           </motion.div>
         </div>
       </div>
+
+      <TaskDrawer taskId={drawerTaskId} onClose={() => setDrawerTaskId(null)} />
     </PageTransition>
   );
 }
