@@ -4,7 +4,15 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useReportStore } from "@/store/useReportStore";
-import { Code2, Copy, Download, FileText, FilePen, Trash2, X } from "lucide-react";
+import {
+  Code2,
+  Copy,
+  Download,
+  FileText,
+  FilePen,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -75,7 +83,7 @@ function ReportDetailContent() {
 
     function handleClick(e: MouseEvent) {
       const link = (e.target as Element).closest<HTMLAnchorElement>(
-        'a[href^="/tasks?id="]'
+        'a[href^="/tasks?id="]',
       );
       if (!link) return;
       e.preventDefault();
@@ -195,7 +203,11 @@ ${sanitizedHtml}
           <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-40" />
           <h3 className="text-lg font-semibold mb-2">Report not found</h3>
           <p className="text-sm text-muted-foreground mb-6">
-            No report with ID <code className="bg-accent px-1.5 py-0.5 rounded text-xs">{searchParams.get("id")}</code> exists.
+            No report with ID{" "}
+            <code className="bg-accent px-1.5 py-0.5 rounded text-xs">
+              {searchParams.get("id")}
+            </code>{" "}
+            exists.
           </p>
           <button
             onClick={() => router.push("/reports")}
@@ -235,7 +247,7 @@ ${sanitizedHtml}
                 title="View source"
               >
                 <Code2 className="w-4 h-4" />
-                <span>View Source</span>
+                <span>Source</span>
               </button>
 
               <Link
@@ -244,7 +256,7 @@ ${sanitizedHtml}
                 title="View as PDF"
               >
                 <FilePen className="w-4 h-4" />
-                <span>View PDF</span>
+                <span>PDF</span>
               </Link>
 
               <div className="w-px h-5 bg-border mx-1" />
@@ -303,7 +315,7 @@ ${sanitizedHtml}
                       "px-3 py-1 rounded text-sm font-medium transition-colors",
                       sourceTab === "md"
                         ? "bg-card shadow-sm text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     Markdown
@@ -314,7 +326,7 @@ ${sanitizedHtml}
                       "px-3 py-1 rounded text-sm font-medium transition-colors",
                       sourceTab === "html"
                         ? "bg-card shadow-sm text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     HTML
@@ -360,10 +372,7 @@ ${sanitizedHtml}
       </div>
 
       {/* Task drawer — rendered outside the flex column so it overlays correctly */}
-      <TaskDrawer
-        taskId={drawerTaskId}
-        onClose={() => setDrawerTaskId(null)}
-      />
+      <TaskDrawer taskId={drawerTaskId} onClose={() => setDrawerTaskId(null)} />
     </>
   );
 }
