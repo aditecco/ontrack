@@ -21,7 +21,7 @@ export default function ExportSettingsPage() {
 
   async function exportDatabase() {
     try {
-      const [tasks, timeEntries, dayNotes, tags, taskTags, reports, reportPresets, reportTemplates] =
+      const [tasks, timeEntries, dayNotes, tags, taskTags, reports, reportPresets, reportTemplates, planTasks] =
         await Promise.all([
           db.tasks.toArray(),
           db.timeEntries.toArray(),
@@ -31,10 +31,11 @@ export default function ExportSettingsPage() {
           db.reports.toArray(),
           db.reportPresets.toArray(),
           db.reportTemplates.toArray(),
+          db.planTasks.toArray(),
         ]);
 
       const data = {
-        version: 3,
+        version: 4,
         exportDate: new Date().toISOString(),
         tasks,
         timeEntries,
@@ -44,6 +45,7 @@ export default function ExportSettingsPage() {
         reports,
         reportPresets,
         reportTemplates,
+        planTasks,
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -100,7 +102,7 @@ export default function ExportSettingsPage() {
     try {
       await db.transaction(
         "rw",
-        [db.tasks, db.timeEntries, db.dayNotes, db.tags, db.taskTags, db.reports, db.reportPresets, db.reportTemplates],
+        [db.tasks, db.timeEntries, db.dayNotes, db.tags, db.taskTags, db.reports, db.reportPresets, db.reportTemplates, db.planTasks],
         async () => {
           // Clear all tables
           await Promise.all([
@@ -112,6 +114,7 @@ export default function ExportSettingsPage() {
             db.reports.clear(),
             db.reportPresets.clear(),
             db.reportTemplates.clear(),
+            db.planTasks.clear(),
           ]);
 
           // Tasks
@@ -212,6 +215,19 @@ export default function ExportSettingsPage() {
               return { ...rest, createdAt: new Date(rest.createdAt) };
             });
             await db.reports.bulkAdd(reportsToImport);
+          }
+
+          // Plan tasks — remap taskId
+          if (pendingImportData.planTasks?.length > 0) {
+            const planTasksToImport = pendingImportData.planTasks.map((pt: any) => {
+              const { id, ...rest } = pt;
+              return {
+                ...rest,
+                taskId: taskIdMap.get(rest.taskId) ?? rest.taskId,
+                addedAt: new Date(rest.addedAt),
+              };
+            });
+            await db.planTasks.bulkAdd(planTasksToImport);
           }
         },
       );
@@ -344,6 +360,7 @@ export default function ExportSettingsPage() {
                 <p className="text-sm"><span className="font-medium">Day Notes:</span> {pendingImportData.dayNotes?.length || 0}</p>
                 <p className="text-sm"><span className="font-medium">Tags:</span> {pendingImportData.tags?.length || 0}</p>
                 <p className="text-sm"><span className="font-medium">Reports:</span> {pendingImportData.reports?.length || 0}</p>
+                <p className="text-sm"><span className="font-medium">Plan tasks:</span> {pendingImportData.planTasks?.length || 0}</p>
                 {pendingImportData.exportDate && (
                   <p className="text-xs text-muted-foreground pt-1">
                     Exported: {new Date(pendingImportData.exportDate).toLocaleString()}

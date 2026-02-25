@@ -98,10 +98,22 @@ function TaskDetailContent() {
           const sortedDates = Array.from(dailyMap.entries())
             .sort((a, b) => a[0].localeCompare(b[0]))
             .slice(-7);
-          return sortedDates.map(([date, hours]) => ({
-            date: formatDate(new Date(date)),
-            hours: Number(hours.toFixed(2)),
-          }));
+          const estimate = selectedTask.estimatedHours;
+          let cumulative = 0;
+          return sortedDates.map(([date, hours]) => {
+            const startPct = estimate > 0 ? Math.min((cumulative / estimate) * 100, 100) : 0;
+            const widthPct = estimate > 0 ? (hours / estimate) * 100 : 0;
+            // The first row that pushes the total past the estimate
+            const isFirstOverflow = cumulative < estimate && cumulative + hours > estimate;
+            cumulative += hours;
+            return {
+              date: formatDate(new Date(date + "T12:00:00")),
+              hours: Number(hours.toFixed(2)),
+              startPct,
+              widthPct,
+              isFirstOverflow,
+            };
+          });
         })();
 
         return {
@@ -532,50 +544,47 @@ function TaskDetailContent() {
 
       {/* Daily Time Distribution */}
       <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-xl font-bold mb-4">Daily Time Distribution</h2>
+        <h2 className="text-xl font-bold mb-1">Daily Time Distribution</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Each bar is positioned relative to the total estimate ({selectedTask.estimatedHours}h)
+        </p>
         {taskStats.dailyData.length > 0 ? (
           <div className="space-y-4">
-            {taskStats.dailyData.map((day, index) => {
-              const maxHours = Math.max(
-                ...taskStats.dailyData.map((d) => d.hours),
-                selectedTask.estimatedHours || 8,
-              );
-              const percentage = (day.hours / maxHours) * 100;
-              return (
-                <motion.div
-                  key={day.date}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">{day.date}</span>
-                    <span className="text-sm font-bold">
-                      {day.hours.toFixed(2)}h
-                    </span>
-                  </div>
-                  <div className="w-full h-8 bg-accent/50 rounded-full overflow-hidden border border-border/50">
-                    <motion.div
-                      className={cn(
-                        "h-full rounded-full flex items-center justify-end pr-3",
-                        day.hours > selectedTask.estimatedHours / 7
-                          ? "bg-gradient-to-r from-red-500 to-red-400"
-                          : "bg-gradient-to-r from-blue-500 to-blue-400",
-                      )}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${percentage}%` }}
-                      transition={{ duration: 0.5, delay: index * 0.05 }}
-                    >
-                      {percentage > 15 && (
-                        <span className="text-xs font-semibold text-primary-foreground">
-                          {day.hours.toFixed(1)}h
-                        </span>
-                      )}
-                    </motion.div>
-                  </div>
-                </motion.div>
-              );
-            })}
+            {taskStats.dailyData.map((day, index) => (
+              <motion.div
+                key={day.date}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">{day.date}</span>
+                  <span className={cn(
+                    "text-sm font-bold",
+                    day.isFirstOverflow ? "text-red-400" : "",
+                  )}>
+                    {day.hours.toFixed(2)}h
+                    {day.isFirstOverflow && (
+                      <span className="ml-1.5 text-xs font-normal text-red-400">over estimate</span>
+                    )}
+                  </span>
+                </div>
+                <div className="relative w-full h-8 bg-accent/50 rounded overflow-hidden border border-border/50">
+                  <motion.div
+                    className={cn(
+                      "absolute h-full rounded",
+                      day.isFirstOverflow
+                        ? "bg-gradient-to-r from-red-500 to-red-400"
+                        : "bg-gradient-to-r from-blue-500 to-blue-400",
+                    )}
+                    style={{ left: `${day.startPct}%` }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${day.widthPct}%` }}
+                    transition={{ duration: 0.5, delay: index * 0.05 }}
+                  />
+                </div>
+              </motion.div>
+            ))}
           </div>
         ) : (
           <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">

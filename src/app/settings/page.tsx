@@ -9,14 +9,17 @@ import {
   Database,
   ChevronRight,
   Calendar,
+  Timer,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useWeeklyCapacity } from "@/hooks/useWeeklyCapacity";
 import { DATE_FORMAT_OPTIONS } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { dateFormat, setDateFormat } = useDateFormat();
+  const { weeklyCapacity, setWeeklyCapacity } = useWeeklyCapacity();
 
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window !== "undefined") {
@@ -135,6 +138,43 @@ export default function SettingsPage() {
                     {opt.example}
                   </button>
                 ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Plan Mode Section */}
+          <motion.div
+            className="bg-card border border-border rounded-lg p-6 space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15 }}
+          >
+            <h2 className="text-xl font-semibold">Plan Mode</h2>
+
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Timer className="w-4 h-4 text-muted-foreground" />
+                  <p className="font-medium">Weekly capacity</p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  How many hours you plan to work per week. Used by Plan mode to
+                  calculate task scheduling.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <input
+                  type="number"
+                  min={1}
+                  max={168}
+                  value={weeklyCapacity}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v) && v > 0 && v <= 168) setWeeklyCapacity(v);
+                  }}
+                  className="w-20 px-3 py-2 rounded-lg border border-border bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <span className="text-sm text-muted-foreground">h / week</span>
               </div>
             </div>
           </motion.div>

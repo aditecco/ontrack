@@ -83,6 +83,13 @@ export interface Report {
   createdAt: Date;
 }
 
+export interface PlanTask {
+  id?: number;
+  taskId: number;
+  order: number;
+  addedAt: Date;
+}
+
 export class OnTrackDB extends Dexie {
   tasks!: Table<Task>;
   timeEntries!: Table<TimeEntry>;
@@ -92,6 +99,7 @@ export class OnTrackDB extends Dexie {
   reports!: Table<Report>;
   reportPresets!: Table<ReportPreset>;
   reportTemplates!: Table<ReportTemplate>;
+  planTasks!: Table<PlanTask>;
 
   constructor() {
     super("ontrack");
@@ -133,6 +141,18 @@ export class OnTrackDB extends Dexie {
       reports: "++id, createdAt",
       reportPresets: "++id, name, isDefault, createdAt",
       reportTemplates: "++id, name, isDefault, createdAt",
+    });
+    this.version(7).stores({
+      tasks:
+        "++id, name, customer, status, estimationStatus, isSelfReportedEstimate, createdAt",
+      timeEntries: "++id, taskId, date, createdAt",
+      dayNotes: "++id, &date, createdAt",
+      tags: "++id, &name, createdAt",
+      taskTags: "++id, taskId, tagId, [taskId+tagId]",
+      reports: "++id, createdAt",
+      reportPresets: "++id, name, isDefault, createdAt",
+      reportTemplates: "++id, name, isDefault, createdAt",
+      planTasks: "++id, taskId, order, addedAt",
     });
   }
 }
