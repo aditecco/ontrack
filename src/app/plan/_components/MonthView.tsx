@@ -1,31 +1,59 @@
 "use client";
 
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { startOfWeek, weeksInMonth, type PackedTask } from "./planUtils";
+import type { Task, WeeklyPlanItem } from "@/lib/db";
+import {
+  startOfWeek,
+  weeksInMonth,
+  weekStartISO,
+  weekIndexFromNow,
+} from "./planUtils";
+import { blockColor } from "./TaskBlock";
 
 interface MonthViewProps {
-  packed: PackedTask[];
+  items: WeeklyPlanItem[];
   year: number;
   month: number; // 0-based
   weeklyCapacity: number;
-  onRemove: (id: number) => void;
+  taskMap: Map<number, Task>;
   onTaskClick: (taskId: number) => void;
 }
 
 export function MonthView({
-  packed,
+  items,
   year,
   month,
   weeklyCapacity,
-  onRemove,
+  taskMap,
   onTaskClick,
 }: MonthViewProps) {
   const weeks = weeksInMonth(year, month);
   const todayWeekStart = startOfWeek(new Date());
 
-  const totalRemaining = packed.reduce((s, p) => s + p.remainingHours, 0);
+  // Build a map: weekISO → taskId → totalPlannedHours
+  const weekTaskHours = new Map<string, Map<number, number>>();
+  for (const item of items) {
+    let taskMap2 = weekTaskHours.get(item.weekStart);
+    if (!taskMap2) {
+      taskMap2 = new Map();
+      weekTaskHours.set(item.weekStart, taskMap2);
+    }
+    taskMap2.set(item.taskId, (taskMap2.get(item.taskId) ?? 0) + item.plannedHours);
+  }
+
+  // Collect all unique taskIds that appear in this month's items
+  const taskIds = Array.from(new Set(items.map((i) => i.taskId)));
+
+  // Total planned hours per week (across all tasks)
+  function weekTotal(ws: Date): number {
+    const iso = weekStartISO(ws);
+    const tm = weekTaskHours.get(iso);
+    if (!tm) return 0;
+    return Array.from(tm.values()).reduce((s, h) => s + h, 0);
+  }
+
+  const totalPlanned = items.reduce((s, i) => s + i.plannedHours, 0);
   const totalMonthCapacity = weeks.length * weeklyCapacity;
 
   return (
@@ -33,14 +61,8 @@ export function MonthView({
       {/* Summary row */}
       <div className="flex items-center gap-6 text-sm flex-wrap">
         <div>
-          <span className="text-muted-foreground">Total remaining: </span>
-          <span className="font-mono font-semibold">{totalRemaining.toFixed(1)}h</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Weeks needed: </span>
-          <span className="font-mono font-semibold">
-            {weeklyCapacity > 0 ? (totalRemaining / weeklyCapacity).toFixed(1) : "—"}
-          </span>
+          <span className="text-muted-foreground">Planned this month: </span>
+          <span className="font-mono font-semibold">{totalPlanned.toFixed(1)}h</span>
         </div>
         <div>
           <span className="text-muted-foreground">Month capacity: </span>
@@ -53,27 +75,24 @@ export function MonthView({
         {/* Header */}
         <div
           className="grid gap-1 mb-2"
-          style={{ gridTemplateColumns: `200px repeat(${weeks.length}, 1fr)` }}
+          style={{ gridTemplateColumns: `180px repeat(${weeks.length}, 1fr)` }}
         >
           <div />
           {weeks.map((ws, i) => {
             const isCurrent = ws.getTime() === todayWeekStart.getTime();
+            const isPast = weekIndexFromNow(ws) < 0;
             return (
               <div key={i} className="text-center">
-                <p
-                  className={cn(
-                    "text-sm font-medium",
-                    isCurrent ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
+                <p className={cn(
+                  "text-sm font-medium",
+                  isCurrent ? "text-primary" : isPast ? "text-muted-foreground/40" : "text-muted-foreground",
+                )}>
                   W{i + 1}
                 </p>
-                <p
-                  className={cn(
-                    "text-sm",
-                    isCurrent ? "text-primary" : "text-muted-foreground/60",
-                  )}
-                >
+                <p className={cn(
+                  "text-xs",
+                  isCurrent ? "text-primary" : isPast ? "text-muted-foreground/30" : "text-muted-foreground/60",
+                )}>
                   {format(ws, "d MMM")}
                 </p>
               </div>
@@ -82,98 +101,90 @@ export function MonthView({
         </div>
 
         {/* Task rows */}
-        <div className="space-y-2">
-          {packed.length === 0 && (
+        <div className="space-y-1.5">
+          {taskIds.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No tasks in the plan yet.
+              No tasks scheduled this month.
             </p>
           )}
-          {packed.map((p) => (
-            <div
-              key={p.planTask.id}
-              className="grid gap-1 items-center group"
-              style={{ gridTemplateColumns: `200px repeat(${weeks.length}, 1fr)` }}
-            >
-              {/* Label */}
-              <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                <button
-                  onClick={() => onRemove(p.planTask.id!)}
-                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-                <div className="min-w-0">
+          {taskIds.map((taskId) => {
+            const task = taskMap.get(taskId);
+            if (!task) return null;
+            const color = blockColor(taskId);
+            return (
+              <div
+                key={taskId}
+                className="grid gap-1 items-center group"
+                style={{ gridTemplateColumns: `180px repeat(${weeks.length}, 1fr)` }}
+              >
+                {/* Label */}
+                <div className="min-w-0 pr-2">
                   <button
                     type="button"
-                    onClick={() => onTaskClick(p.task.id!)}
+                    onClick={() => onTaskClick(taskId)}
                     className="text-sm font-medium truncate hover:text-primary transition-colors text-left w-full block"
-                    title={p.task.name}
+                    title={task.name}
                   >
-                    {p.task.name}
+                    {task.name}
                   </button>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {p.remainingHours.toFixed(1)}h left
-                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{task.customer}</p>
                 </div>
-              </div>
 
-              {/* Week cells */}
-              {weeks.map((ws, wi) => {
-                const weekStart = wi * weeklyCapacity;
-                const overlapStart = Math.max(p.startHour - weekStart, 0);
-                const overlapEnd = Math.min(p.endHour - weekStart, weeklyCapacity);
-                const overlapHours = Math.max(overlapEnd - overlapStart, 0);
-                const fillPct = (overlapHours / weeklyCapacity) * 100;
-                const offsetPct = (overlapStart / weeklyCapacity) * 100;
-                const isCurrent = ws.getTime() === todayWeekStart.getTime();
+                {/* Week cells */}
+                {weeks.map((ws, wi) => {
+                  const iso = weekStartISO(ws);
+                  const hours = weekTaskHours.get(iso)?.get(taskId) ?? 0;
+                  const fillPct = Math.min((hours / weeklyCapacity) * 100, 100);
+                  const isCurrent = ws.getTime() === todayWeekStart.getTime();
+                  const isPast = weekIndexFromNow(ws) < 0;
 
-                return (
-                  <div key={wi} className="relative h-8">
-                    <div
-                      className={cn(
+                  return (
+                    <div key={wi} className="relative h-7">
+                      <div className={cn(
                         "absolute inset-0 rounded",
-                        isCurrent ? "bg-accent/50" : "bg-accent/20",
+                        isCurrent ? "bg-accent/50" : isPast ? "bg-accent/10" : "bg-accent/20",
+                      )} />
+                      {fillPct > 0 && (
+                        <div
+                          className={cn(
+                            "absolute inset-y-0.5 left-0 rounded",
+                            color.bg.split(" ")[0], // just the bg class
+                          )}
+                          style={{ width: `${fillPct}%` }}
+                          title={`${hours.toFixed(1)}h planned this week`}
+                        />
                       )}
-                    />
-                    {fillPct > 0 && (
-                      <div
-                        className="absolute inset-y-0.5 rounded bg-primary/60"
-                        style={{ left: `${offsetPct}%`, width: `${fillPct}%` }}
-                        title={`${overlapHours.toFixed(1)}h in this week`}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                      {hours > 0 && (
+                        <span className="absolute inset-0 flex items-center justify-center text-xs font-mono text-foreground/70">
+                          {hours % 1 === 0 ? `${hours}h` : `${hours.toFixed(1)}h`}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
 
         {/* Capacity footer */}
         <div
-          className="grid gap-1 mt-3"
-          style={{ gridTemplateColumns: `200px repeat(${weeks.length}, 1fr)` }}
+          className="grid gap-1 mt-3 pt-3 border-t border-border/30"
+          style={{ gridTemplateColumns: `180px repeat(${weeks.length}, 1fr)` }}
         >
-          <div className="text-sm text-muted-foreground text-right pr-2">
-            Capacity used
-          </div>
-          {weeks.map((_, wi) => {
-            const weekStart = wi * weeklyCapacity;
-            const used = packed.reduce((sum, p) => {
-              const s = Math.max(p.startHour - weekStart, 0);
-              const e = Math.min(p.endHour - weekStart, weeklyCapacity);
-              return sum + Math.max(e - s, 0);
-            }, 0);
+          <div className="text-xs text-muted-foreground text-right pr-2">Total planned</div>
+          {weeks.map((ws, wi) => {
+            const total = weekTotal(ws);
+            const isOver = total > weeklyCapacity;
             return (
               <div key={wi} className="text-center">
-                <p
-                  className={cn(
-                    "text-sm font-mono font-semibold",
-                    used > weeklyCapacity ? "text-amber-500" : "text-muted-foreground",
-                  )}
-                >
-                  {used.toFixed(0)}h
+                <p className={cn(
+                  "text-xs font-mono font-semibold",
+                  isOver ? "text-amber-400" : total > 0 ? "text-foreground" : "text-muted-foreground/40",
+                )}>
+                  {total > 0 ? (total % 1 === 0 ? `${total}h` : `${total.toFixed(1)}h`) : "—"}
                 </p>
+                <p className="text-xs text-muted-foreground/40">/ {weeklyCapacity}h</p>
               </div>
             );
           })}

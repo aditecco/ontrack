@@ -90,6 +90,20 @@ export interface PlanTask {
   addedAt: Date;
 }
 
+export interface WeeklyPlanItem {
+  id?: number;
+  taskId: number;
+  /** ISO "YYYY-MM-DD" — always the Monday of the week */
+  weekStart: string;
+  /** 0 = Mon … 4 = Fri */
+  dayIndex: number;
+  /** Vertical stacking order within the column */
+  order: number;
+  /** Drives block height; for tasks with remainingHours ≤ 0 this is visualization-only */
+  plannedHours: number;
+  createdAt: Date;
+}
+
 export class OnTrackDB extends Dexie {
   tasks!: Table<Task>;
   timeEntries!: Table<TimeEntry>;
@@ -100,6 +114,7 @@ export class OnTrackDB extends Dexie {
   reportPresets!: Table<ReportPreset>;
   reportTemplates!: Table<ReportTemplate>;
   planTasks!: Table<PlanTask>;
+  weeklyPlanItems!: Table<WeeklyPlanItem>;
 
   constructor() {
     super("ontrack");
@@ -153,6 +168,19 @@ export class OnTrackDB extends Dexie {
       reportPresets: "++id, name, isDefault, createdAt",
       reportTemplates: "++id, name, isDefault, createdAt",
       planTasks: "++id, taskId, order, addedAt",
+    });
+    this.version(8).stores({
+      tasks:
+        "++id, name, customer, status, estimationStatus, isSelfReportedEstimate, createdAt",
+      timeEntries: "++id, taskId, date, createdAt",
+      dayNotes: "++id, &date, createdAt",
+      tags: "++id, &name, createdAt",
+      taskTags: "++id, taskId, tagId, [taskId+tagId]",
+      reports: "++id, createdAt",
+      reportPresets: "++id, name, isDefault, createdAt",
+      reportTemplates: "++id, name, isDefault, createdAt",
+      planTasks: "++id, taskId, order, addedAt",
+      weeklyPlanItems: "++id, taskId, weekStart, dayIndex, order, createdAt, [weekStart+dayIndex]",
     });
   }
 }

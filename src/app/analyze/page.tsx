@@ -129,9 +129,9 @@ export default function AnalyzePage() {
     const noStatus = completedTasks.filter((t) => !t.estimationStatus).length;
 
     return [
-      { name: "Underestimated", value: under, color: "#f97316" },
-      { name: "Overestimated", value: over, color: "#a855f7" },
-      { name: "On Track", value: onTrack, color: "#22c55e" },
+      { name: "Underestimated", value: under, color: "hsl(24 60% 50%)" },
+      { name: "Overestimated", value: over, color: "hsl(270 45% 55%)" },
+      { name: "On Track", value: onTrack, color: "hsl(142 45% 45%)" },
       { name: "No Status", value: noStatus, color: "#64748b" },
     ].filter((d) => d.value > 0);
   }, [filteredTasks]);
@@ -485,7 +485,7 @@ export default function AnalyzePage() {
                     />
                     <Bar
                       dataKey="avgEstimate"
-                      fill="hsl(210 90% 60%)"
+                      fill="hsl(210 55% 50%)"
                       radius={[0, 4, 4, 0]}
                     />
                   </BarChart>
@@ -607,7 +607,7 @@ export default function AnalyzePage() {
                   <Tooltip content={<ScatterTooltip />} />
                   <Scatter
                     data={estimatedVsActual}
-                    fill="hsl(210 90% 60%)"
+                    fill="hsl(210 55% 50%)"
                   >
                     {estimatedVsActual.map((entry, index) => (
                       <Cell
@@ -688,7 +688,7 @@ export default function AnalyzePage() {
                       {estimationErrorByTag.map((entry, index) => (
                         <Cell
                           key={index}
-                          fill={entry.avgPctError > 0 ? "#f97316" : "#22c55e"}
+                          fill={entry.avgPctError > 0 ? "hsl(24 60% 50%)" : "hsl(142 45% 45%)"}
                         />
                       ))}
                     </Bar>
@@ -755,26 +755,26 @@ export default function AnalyzePage() {
                     <Line
                       type="monotone"
                       dataKey="accuracyRate"
-                      stroke="#22c55e"
+                      stroke="hsl(142 45% 45%)"
                       name="On Track"
                       strokeWidth={2}
-                      dot={{ fill: "#22c55e", r: 4 }}
+                      dot={{ fill: "hsl(142 45% 45%)", r: 4 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="underRate"
-                      stroke="#f97316"
+                      stroke="hsl(24 60% 50%)"
                       name="Underestimated"
                       strokeWidth={2}
-                      dot={{ fill: "#f97316", r: 4 }}
+                      dot={{ fill: "hsl(24 60% 50%)", r: 4 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="overRate"
-                      stroke="#a855f7"
+                      stroke="hsl(270 45% 55%)"
                       name="Overestimated"
                       strokeWidth={2}
-                      dot={{ fill: "#a855f7", r: 4 }}
+                      dot={{ fill: "hsl(270 45% 55%)", r: 4 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>

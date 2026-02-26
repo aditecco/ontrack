@@ -15,11 +15,13 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useWeeklyCapacity } from "@/hooks/useWeeklyCapacity";
+import { useWorkDayConfig } from "@/hooks/useWorkDayConfig";
 import { DATE_FORMAT_OPTIONS } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { dateFormat, setDateFormat } = useDateFormat();
   const { weeklyCapacity, setWeeklyCapacity } = useWeeklyCapacity();
+  const { config: workDayConfig, updateConfig: updateWorkDayConfig } = useWorkDayConfig();
 
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window !== "undefined") {
@@ -144,37 +146,90 @@ export default function SettingsPage() {
 
           {/* Plan Mode Section */}
           <motion.div
-            className="bg-card border border-border rounded-lg p-6 space-y-6"
+            className="bg-card border border-border rounded-lg overflow-hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.15 }}
           >
-            <h2 className="text-xl font-semibold">Plan Mode</h2>
+            {/* Section header */}
+            <div className="px-6 py-4 border-b border-border bg-accent/20 flex items-center gap-2">
+              <Timer className="w-4 h-4 text-primary" />
+              <h2 className="text-base font-semibold">Plan Mode</h2>
+            </div>
 
-            <div className="flex items-start justify-between gap-6">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Timer className="w-4 h-4 text-muted-foreground" />
-                  <p className="font-medium">Weekly capacity</p>
+            <div className="p-6 space-y-0 divide-y divide-border">
+              {/* Capacity subsection */}
+              <div className="pb-5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Capacity</p>
+                <div className="flex items-center justify-between gap-6">
+                  <div>
+                    <p className="font-medium text-sm">Weekly capacity</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Total hours you plan to work per week
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <input
+                      type="number"
+                      min={1}
+                      max={168}
+                      value={weeklyCapacity}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v) && v > 0 && v <= 168) setWeeklyCapacity(v);
+                      }}
+                      className="w-20 px-3 py-2 rounded-lg border border-border bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <span className="text-sm text-muted-foreground">h / week</span>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  How many hours you plan to work per week. Used by Plan mode to
-                  calculate task scheduling.
-                </p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <input
-                  type="number"
-                  min={1}
-                  max={168}
-                  value={weeklyCapacity}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!isNaN(v) && v > 0 && v <= 168) setWeeklyCapacity(v);
-                  }}
-                  className="w-20 px-3 py-2 rounded-lg border border-border bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                <span className="text-sm text-muted-foreground">h / week</span>
+
+              {/* Work day subsection */}
+              <div className="pt-5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Work Day Schedule</p>
+                <div className="flex items-center justify-between gap-6">
+                  <div>
+                    <p className="font-medium text-sm">Day start &amp; lunch</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Shown as tick marks in Plan day columns
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4 flex-shrink-0 flex-wrap justify-end">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Start</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={workDayConfig.dayStartHour}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          if (!isNaN(v) && v >= 0 && v <= 23)
+                            updateWorkDayConfig({ dayStartHour: v });
+                        }}
+                        className="w-16 px-3 py-2 rounded-lg border border-border bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      <span className="text-sm text-muted-foreground">h</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Lunch</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={workDayConfig.lunchHour}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          if (!isNaN(v) && v >= 0 && v <= 23)
+                            updateWorkDayConfig({ lunchHour: v });
+                        }}
+                        className="w-16 px-3 py-2 rounded-lg border border-border bg-background text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      <span className="text-sm text-muted-foreground">h</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -189,28 +244,28 @@ export default function SettingsPage() {
             >
               Configuration
             </motion.h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
               {settingsCategories.map((category, index) => (
                 <motion.div
                   key={category.href}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 + index * 0.05 }}
                 >
                   <Link href={category.href}>
-                    <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/30 transition-all cursor-pointer group">
-                      <div className="flex items-start justify-between mb-3">
-                        <div
-                          className={`p-3 rounded-lg bg-accent group-hover:bg-background transition-colors ${category.color}`}
-                        >
-                          <category.icon className="w-6 h-6" />
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors group-hover:translate-x-1 transition-transform" />
+                    <div className="bg-card border border-border rounded-lg hover:bg-accent/30 transition-all cursor-pointer group flex items-center gap-4 p-5">
+                      <div
+                        className={`p-3 rounded-lg bg-accent group-hover:bg-background transition-colors flex-shrink-0 ${category.color}`}
+                      >
+                        <category.icon className="w-5 h-5" />
                       </div>
-                      <h3 className="font-semibold mb-1">{category.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {category.description}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold">{category.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {category.description}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors group-hover:translate-x-1 transition-transform flex-shrink-0" />
                     </div>
                   </Link>
                 </motion.div>

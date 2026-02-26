@@ -518,7 +518,7 @@ export default function ReportsSettingsPage() {
                         placeholder="Template content (use {{variables}} for data)"
                       />
                       <div className="text-xs text-muted-foreground bg-background p-2 rounded">
-                        Available variables: {"{{"+ "dateRange}}, {{"+ "summary}}, {{"+ "tasks}}, {{"+ "dayNotes}}, {{"+ "generatedDate}}"}
+                        Available variables: {"{{"+ "dateRange}}, {{"+ "summary}}, {{"+ "tasks}}, {{"+ "entriesByDate}}, {{"+ "dayNotes}}, {{"+ "generatedDate}}"}
                       </div>
                       <div className="flex gap-2 justify-end">
                         <button
