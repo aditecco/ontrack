@@ -25,19 +25,15 @@ export function AddTaskPanel({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Task | null>(null);
-  // All days pre-checked by default
-  const [checkedDays, setCheckedDays] = useState<boolean[]>([true, true, true, true, true]);
+  // Days start unchecked — user consciously picks which days
+  const [checkedDays, setCheckedDays] = useState<boolean[]>([false, false, false, false, false]);
   const [hours, setHours] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus search on open
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -47,30 +43,32 @@ export function AddTaskPanel({
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const results = useMemo(() => {
+  const { unplanned, planned } = useMemo(() => {
     const q = query.toLowerCase().trim();
-    return tasks
-      .filter((t) => t.status !== "archived" && t.status !== "canceled")
-      .filter((t) => !existingTaskIds.has(t.id!))
-      .filter(
-        (t) =>
-          !q ||
-          t.name.toLowerCase().includes(q) ||
-          t.customer.toLowerCase().includes(q),
-      )
-      .slice(0, 8);
+    const active = tasks.filter(
+      (t) => t.status !== "archived" && t.status !== "canceled",
+    );
+    const matches = active.filter(
+      (t) =>
+        !q ||
+        t.name.toLowerCase().includes(q) ||
+        t.customer.toLowerCase().includes(q),
+    );
+    return {
+      unplanned: matches.filter((t) => !existingTaskIds.has(t.id!)).slice(0, 8),
+      planned: matches.filter((t) => existingTaskIds.has(t.id!)).slice(0, 5),
+    };
   }, [tasks, query, existingTaskIds]);
 
   function selectTask(task: Task) {
     setSelected(task);
     const tracked = trackedByTask.get(task.id!) ?? 0;
     const remaining = Math.max(task.estimatedHours - tracked, 0);
-    const defaultHours =
-      remaining > 0 ? Math.min(remaining, dailyCapacity) : 1;
+    const defaultHours = remaining > 0 ? Math.min(remaining, dailyCapacity) : 1;
     setHours(
       defaultHours % 1 === 0 ? String(defaultHours) : defaultHours.toFixed(1),
     );
-    setCheckedDays([true, true, true, true, true]);
+    setCheckedDays([false, false, false, false, false]);
   }
 
   function toggleDay(i: number) {
@@ -99,15 +97,43 @@ export function AddTaskPanel({
 
   const checkedCount = checkedDays.filter(Boolean).length;
 
+  function TaskRow({ task, isPlanned }: { task: Task; isPlanned: boolean }) {
+    const tracked = trackedByTask.get(task.id!) ?? 0;
+    const remaining = Math.max(task.estimatedHours - tracked, 0);
+    return (
+      <button
+        key={task.id}
+        onClick={() => selectTask(task)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-accent/50 transition-colors text-left"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{task.name}</p>
+          <p className="text-xs text-muted-foreground truncate">{task.customer}</p>
+        </div>
+        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+          {isPlanned && (
+            <span className="text-xs bg-primary/15 text-primary rounded-full px-1.5 py-0.5 font-medium">
+              planned
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground font-mono">
+            {remaining > 0 ? `${remaining.toFixed(1)}h left` : "done"}
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+        </div>
+      </button>
+    );
+  }
+
   return (
     <>
-      {/* Trigger button */}
+      {/* Trigger button — styled as primary CTA */}
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors text-sm w-full"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
       >
         <Plus className="w-4 h-4" />
-        Add task to board
+        Add task
       </button>
 
       {/* Modal overlay */}
@@ -119,7 +145,7 @@ export function AddTaskPanel({
           }}
         >
           <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
-            {/* Header */}
+            {/* Search header */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
               <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <input
@@ -140,65 +166,54 @@ export function AddTaskPanel({
               </button>
             </div>
 
-            {/* Task list (step 1) */}
+            {/* Task list — step 1 */}
             {!selected && (
-              <div className="max-h-72 overflow-y-auto">
-                {results.length === 0 ? (
+              <div className="max-h-80 overflow-y-auto">
+                {unplanned.length === 0 && planned.length === 0 ? (
                   <p className="text-sm text-muted-foreground px-4 py-4">
-                    {query
-                      ? "No matching tasks found"
-                      : existingTaskIds.size > 0
-                        ? "All tasks already on the board this week"
-                        : "No tasks available"}
+                    {query ? "No matching tasks found" : "No tasks available"}
                   </p>
                 ) : (
-                  results.map((task) => {
-                    const tracked = trackedByTask.get(task.id!) ?? 0;
-                    const remaining = Math.max(
-                      task.estimatedHours - tracked,
-                      0,
-                    );
-                    return (
-                      <button
-                        key={task.id}
-                        onClick={() => selectTask(task)}
-                        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-accent/50 transition-colors text-left"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {task.name}
+                  <>
+                    {/* Unplanned */}
+                    {unplanned.length > 0 && (
+                      <>
+                        {planned.length > 0 && (
+                          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide px-4 pt-3 pb-1">
+                            Unplanned
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {task.customer}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {remaining > 0
-                              ? `${remaining.toFixed(1)}h left`
-                              : "done"}
-                          </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                        </div>
-                      </button>
-                    );
-                  })
+                        )}
+                        {unplanned.map((task) => (
+                          <TaskRow key={task.id} task={task} isPlanned={false} />
+                        ))}
+                      </>
+                    )}
+
+                    {/* Already planned — allow adding more slots */}
+                    {planned.length > 0 && (
+                      <>
+                        <div className="border-t border-border/50 mt-1" />
+                        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide px-4 pt-3 pb-1">
+                          Already planned — add more slots
+                        </p>
+                        {planned.map((task) => (
+                          <TaskRow key={task.id} task={task} isPlanned={true} />
+                        ))}
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             )}
 
-            {/* Placement picker (step 2) */}
+            {/* Placement picker — step 2 */}
             {selected && (
               <div className="p-4 space-y-4">
                 {/* Selected task summary */}
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {selected.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {selected.customer}
-                    </p>
+                    <p className="text-sm font-medium truncate">{selected.name}</p>
+                    <p className="text-xs text-muted-foreground">{selected.customer}</p>
                   </div>
                   <button
                     onClick={() => setSelected(null)}
@@ -211,10 +226,7 @@ export function AddTaskPanel({
                 {/* Visualization-only notice */}
                 {(() => {
                   const tracked = trackedByTask.get(selected.id!) ?? 0;
-                  const remaining = Math.max(
-                    selected.estimatedHours - tracked,
-                    0,
-                  );
+                  const remaining = Math.max(selected.estimatedHours - tracked, 0);
                   return remaining <= 0 ? (
                     <p className="text-xs text-muted-foreground italic">
                       Visualization only — hours won&apos;t affect the estimate
@@ -222,30 +234,24 @@ export function AddTaskPanel({
                   ) : null;
                 })()}
 
-                {/* Day checkboxes */}
+                {/* Day toggle buttons — no DOM checkbox, purely visual */}
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground font-medium">
-                    Add to days
-                  </p>
+                  <p className="text-xs text-muted-foreground font-medium">Add to days</p>
                   <div className="flex gap-1.5">
                     {DAY_LABELS.map((label, i) => (
-                      <label
+                      <button
                         key={i}
+                        type="button"
+                        onClick={() => toggleDay(i)}
                         className={cn(
-                          "flex-1 flex flex-col items-center gap-1 py-2 rounded cursor-pointer transition-colors select-none",
+                          "flex-1 py-2 rounded text-xs font-medium transition-colors",
                           checkedDays[i]
-                            ? "bg-primary/20 border border-primary/40"
-                            : "bg-accent/30 border border-transparent hover:bg-accent/60",
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-accent/40 text-muted-foreground hover:bg-accent/70 hover:text-foreground",
                         )}
                       >
-                        <span className="text-xs font-medium">{label}</span>
-                        <input
-                          type="checkbox"
-                          checked={checkedDays[i]}
-                          onChange={() => toggleDay(i)}
-                          className="w-3.5 h-3.5 accent-primary"
-                        />
-                      </label>
+                        {label}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -266,18 +272,18 @@ export function AddTaskPanel({
                   />
                 </div>
 
-                {/* Confirm button */}
+                {/* Confirm */}
                 <button
                   onClick={handleConfirm}
-                  disabled={
-                    !hours || parseFloat(hours) <= 0 || checkedCount === 0
-                  }
+                  disabled={!hours || parseFloat(hours) <= 0 || checkedCount === 0}
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
-                  {checkedCount === 1
-                    ? `Add to ${DAY_LABELS[checkedDays.indexOf(true)]}`
-                    : `Add to ${checkedCount} days`}
+                  {checkedCount === 0
+                    ? "Select days first"
+                    : checkedCount === 1
+                      ? `Add to ${DAY_LABELS[checkedDays.indexOf(true)]}`
+                      : `Add to ${checkedCount} days`}
                 </button>
               </div>
             )}

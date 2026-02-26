@@ -135,34 +135,49 @@ export default function PlanPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="flex items-center gap-3"
+            className="flex items-center justify-between gap-3"
           >
-            <button
-              onClick={navigatePrev}
-              className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={navigatePrev}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
 
-            <span className="text-sm font-medium min-w-[200px] text-center">
-              {view === "week"
-                ? formatWeekLabel(weekStart)
-                : formatMonthLabel(monthDate)}
-            </span>
+              <span className="text-sm font-medium min-w-[200px] text-center">
+                {view === "week"
+                  ? formatWeekLabel(weekStart)
+                  : formatMonthLabel(monthDate)}
+              </span>
 
-            <button
-              onClick={navigateNext}
-              className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+              <button
+                onClick={navigateNext}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
 
-            <button
-              onClick={navigateToday}
-              className="ml-2 px-3 py-1.5 text-xs rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground border border-border"
-            >
-              Today
-            </button>
+              <button
+                onClick={navigateToday}
+                className="ml-2 px-3 py-1.5 text-xs rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground border border-border"
+              >
+                Today
+              </button>
+            </div>
+
+            {/* Add task CTA — only shown in week view */}
+            {view === "week" && (
+              <AddTaskPanel
+                tasks={tasks}
+                trackedByTask={trackedByTask}
+                dailyCapacity={dayCapacity}
+                existingTaskIds={new Set(items.map((i) => i.taskId))}
+                onAdd={(taskId, dayIndex, plannedHours) =>
+                  addItem(taskId, currentWeekISO, dayIndex, plannedHours)
+                }
+              />
+            )}
           </motion.div>
 
           {/* Main content card */}
@@ -219,24 +234,7 @@ export default function PlanPage() {
             </AnimatePresence>
           </motion.div>
 
-          {/* Add task panel — only in week view */}
-          {view === "week" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <AddTaskPanel
-                tasks={tasks}
-                trackedByTask={trackedByTask}
-                dailyCapacity={dayCapacity}
-                existingTaskIds={new Set(items.map((i) => i.taskId))}
-                onAdd={(taskId, dayIndex, plannedHours) =>
-                  addItem(taskId, currentWeekISO, dayIndex, plannedHours)
-                }
-              />
-            </motion.div>
-          )}
+
         </div>
       </div>
 

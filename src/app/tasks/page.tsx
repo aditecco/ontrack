@@ -20,20 +20,36 @@ import type { Task, Tag } from "@/lib/db";
 import { PageTransition } from "@/components/PageTransition";
 import toast from "react-hot-toast";
 
-// Muted segment colors for the stacked daily distribution bar (keyed by day index)
+// Muted segment colors for the daily distribution pie chart
+const PIE_COLORS = [
+  "hsl(210 55% 50%)",
+  "hsl(270 45% 55%)",
+  "hsl(142 45% 45%)",
+  "hsl(48 55% 48%)",
+  "hsl(0 55% 52%)",
+  "hsl(185 50% 45%)",
+  "hsl(330 50% 52%)",
+  "hsl(230 50% 55%)",
+  "hsl(160 45% 45%)",
+  "hsl(24 60% 50%)",
+  "hsl(80 45% 45%)",
+  "hsl(200 55% 48%)",
+] as const;
+
+// Tailwind bg classes used for legend dots (parallel to PIE_COLORS)
 const SEGMENT_COLORS = [
-  "bg-blue-500/50",
-  "bg-violet-500/50",
-  "bg-emerald-500/50",
-  "bg-amber-500/50",
-  "bg-rose-500/50",
-  "bg-cyan-500/50",
-  "bg-pink-500/50",
-  "bg-indigo-500/50",
-  "bg-teal-500/50",
-  "bg-orange-500/50",
-  "bg-lime-500/50",
-  "bg-sky-500/50",
+  "bg-blue-500/60",
+  "bg-violet-500/60",
+  "bg-emerald-500/60",
+  "bg-amber-500/60",
+  "bg-rose-500/60",
+  "bg-cyan-500/60",
+  "bg-pink-500/60",
+  "bg-indigo-500/60",
+  "bg-teal-500/60",
+  "bg-orange-500/60",
+  "bg-lime-500/60",
+  "bg-sky-500/60",
 ] as const;
 
 // ── Task detail panel ─────────────────────────────────────────────────────────
@@ -558,69 +574,14 @@ function TaskDetailContent() {
         )}
       </motion.div>
 
-      {/* Daily Time Distribution — stacked horizontal bar */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-xl font-bold mb-1">Daily Time Distribution</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Time tracked per day against total estimate ({selectedTask.estimatedHours}h)
-        </p>
-        {taskStats.dailyData.length > 0 ? (
-          <>
-            {/* Stacked bar */}
-            <div className="w-full h-8 rounded overflow-hidden border border-border/50 flex bg-accent/50">
-              {taskStats.dailyData.map((day, index) => {
-                const isOverflow = day.isFirstOverflow || day.startPct >= 100;
-                return (
-                  <motion.div
-                    key={day.date}
-                    className={cn(
-                      "h-full flex-none",
-                      isOverflow
-                        ? "bg-destructive/70"
-                        : SEGMENT_COLORS[index % SEGMENT_COLORS.length],
-                    )}
-                    style={{ width: `${day.widthPct}%` }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${day.widthPct}%` }}
-                    transition={{ duration: 0.5, delay: index * 0.05 }}
-                  />
-                );
-              })}
-            </div>
-            {/* Legend */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-              {taskStats.dailyData.map((day, index) => {
-                const isOverflow = day.isFirstOverflow || day.startPct >= 100;
-                return (
-                  <div key={day.date} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className={cn(
-                      "w-2 h-2 rounded-full flex-shrink-0",
-                      isOverflow
-                        ? "bg-destructive/70"
-                        : SEGMENT_COLORS[index % SEGMENT_COLORS.length],
-                    )} />
-                    {day.date} · {day.hours}h
-                    {day.isFirstOverflow && (
-                      <span className="text-destructive">↑ over estimate</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">
-            No time entries yet
-          </div>
-        )}
-      </div>
-
-      {/* Track Time Widget */}
-      <motion.div
-        className="bg-card border border-border rounded-lg p-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      {/* Track Time + Daily Distribution — 2-col layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Track Time Widget */}
+        <motion.div
+          className="bg-card border border-border rounded-lg p-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
         <div className="flex items-center gap-2 mb-5">
           <Clock className="w-5 h-5 text-primary" />
           <h2 className="text-xl font-bold">Track Time</h2>
@@ -812,6 +773,65 @@ function TaskDetailContent() {
           );
         })()}
       </motion.div>
+
+      {/* Daily Time Distribution — pie chart */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <h2 className="text-xl font-bold mb-1">Daily Distribution</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Time per day · estimate {selectedTask.estimatedHours}h
+        </p>
+        {taskStats.dailyData.length > 0 ? (
+          <>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={taskStats.dailyData}
+                  dataKey="hours"
+                  nameKey="date"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  strokeWidth={1}
+                >
+                  {taskStats.dailyData.map((day, index) => (
+                    <Cell
+                      key={day.date}
+                      fill={
+                        day.isFirstOverflow || day.startPct >= 100
+                          ? "hsl(0 72% 51%)"
+                          : PIE_COLORS[index % PIE_COLORS.length]
+                      }
+                    />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+              {taskStats.dailyData.map((day, index) => (
+                <div
+                  key={day.date}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                  <span
+                    className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      day.isFirstOverflow || day.startPct >= 100
+                        ? "bg-destructive"
+                        : SEGMENT_COLORS[index % SEGMENT_COLORS.length],
+                    )}
+                  />
+                  {day.date} · {day.hours}h
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+            No time entries yet
+          </div>
+        )}
+      </div>
+      </div>
 
       {/* Actions */}
       <div className="bg-card border border-border rounded-lg p-6">
