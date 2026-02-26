@@ -20,6 +20,22 @@ import type { Task, Tag } from "@/lib/db";
 import { PageTransition } from "@/components/PageTransition";
 import toast from "react-hot-toast";
 
+// Muted segment colors for the stacked daily distribution bar (keyed by day index)
+const SEGMENT_COLORS = [
+  "bg-blue-500/50",
+  "bg-violet-500/50",
+  "bg-emerald-500/50",
+  "bg-amber-500/50",
+  "bg-rose-500/50",
+  "bg-cyan-500/50",
+  "bg-pink-500/50",
+  "bg-indigo-500/50",
+  "bg-teal-500/50",
+  "bg-orange-500/50",
+  "bg-lime-500/50",
+  "bg-sky-500/50",
+] as const;
+
 // ── Task detail panel ─────────────────────────────────────────────────────────
 
 function TaskDetailContent() {
@@ -542,50 +558,56 @@ function TaskDetailContent() {
         )}
       </motion.div>
 
-      {/* Daily Time Distribution */}
+      {/* Daily Time Distribution — stacked horizontal bar */}
       <div className="bg-card border border-border rounded-lg p-6">
         <h2 className="text-xl font-bold mb-1">Daily Time Distribution</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Each bar is positioned relative to the total estimate ({selectedTask.estimatedHours}h)
+          Time tracked per day against total estimate ({selectedTask.estimatedHours}h)
         </p>
         {taskStats.dailyData.length > 0 ? (
-          <div className="space-y-4">
-            {taskStats.dailyData.map((day, index) => (
-              <motion.div
-                key={day.date}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{day.date}</span>
-                  <span className={cn(
-                    "text-sm font-bold",
-                    day.isFirstOverflow ? "text-red-400" : "",
-                  )}>
-                    {day.hours.toFixed(2)}h
-                    {day.isFirstOverflow && (
-                      <span className="ml-1.5 text-xs font-normal text-red-400">over estimate</span>
-                    )}
-                  </span>
-                </div>
-                <div className="relative w-full h-8 bg-accent/50 rounded overflow-hidden border border-border/50">
+          <>
+            {/* Stacked bar */}
+            <div className="w-full h-8 rounded overflow-hidden border border-border/50 flex bg-accent/50">
+              {taskStats.dailyData.map((day, index) => {
+                const isOverflow = day.isFirstOverflow || day.startPct >= 100;
+                return (
                   <motion.div
+                    key={day.date}
                     className={cn(
-                      "absolute h-full rounded",
-                      day.isFirstOverflow
-                        ? "bg-gradient-to-r from-red-500 to-red-400"
-                        : "bg-gradient-to-r from-blue-500 to-blue-400",
+                      "h-full flex-none",
+                      isOverflow
+                        ? "bg-destructive/70"
+                        : SEGMENT_COLORS[index % SEGMENT_COLORS.length],
                     )}
-                    style={{ left: `${day.startPct}%` }}
+                    style={{ width: `${day.widthPct}%` }}
                     initial={{ width: 0 }}
                     animate={{ width: `${day.widthPct}%` }}
                     transition={{ duration: 0.5, delay: index * 0.05 }}
                   />
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+            {/* Legend */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+              {taskStats.dailyData.map((day, index) => {
+                const isOverflow = day.isFirstOverflow || day.startPct >= 100;
+                return (
+                  <div key={day.date} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      isOverflow
+                        ? "bg-destructive/70"
+                        : SEGMENT_COLORS[index % SEGMENT_COLORS.length],
+                    )} />
+                    {day.date} · {day.hours}h
+                    {day.isFirstOverflow && (
+                      <span className="text-destructive">↑ over estimate</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         ) : (
           <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">
             No time entries yet
@@ -914,6 +936,8 @@ export default function TasksPage() {
 
 // ── Inline modal components ───────────────────────────────────────────────────
 
+const UNDERESTIMATED_CHIPS = ["Out of scope", "Unclear requirements"] as const;
+
 function EstimationStatusModal({
   estimationStatus,
   onClose,
@@ -923,7 +947,22 @@ function EstimationStatusModal({
   onClose: () => void;
   onSubmit: (reason: string) => void;
 }) {
-  const [reason, setReason] = useState("");
+  const [selectedChips, setSelectedChips] = useState<string[]>([]);
+  const [notes, setNotes] = useState("");
+
+  function toggleChip(label: string) {
+    setSelectedChips((prev) =>
+      prev.includes(label) ? prev.filter((c) => c !== label) : [...prev, label],
+    );
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const parts = [...selectedChips];
+    if (notes.trim()) parts.push(notes.trim());
+    onSubmit(parts.join("\n"));
+  }
+
   return (
     <motion.div
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
@@ -944,25 +983,56 @@ function EstimationStatusModal({
           Mark as{" "}
           {estimationStatus === "on_track" ? "on track" : estimationStatus}
         </h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit(reason);
-          }}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Reason (optional)
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={`Why was this task ${estimationStatus === "on_track" ? "on track" : estimationStatus}?`}
-              rows={4}
-              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Pre-made chips (underestimated only) */}
+          {estimationStatus === "underestimated" && (
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Reason (optional)
+              </label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {UNDERESTIMATED_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => toggleChip(chip)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-sm border transition-colors",
+                      selectedChips.includes(chip)
+                        ? "bg-primary/20 border-primary/50 text-primary"
+                        : "bg-accent/40 border-border text-muted-foreground hover:bg-accent/70",
+                    )}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Additional notes…"
+                rows={3}
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
+            </div>
+          )}
+
+          {/* Free text only (overestimated / on_track) */}
+          {estimationStatus !== "underestimated" && (
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Reason (optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={`Why was this task ${estimationStatus === "on_track" ? "on track" : estimationStatus}?`}
+                rows={4}
+                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
             <button
               type="button"

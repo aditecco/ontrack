@@ -183,19 +183,31 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <motion.div
-        className="bg-card border border-border rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto scrollbar-thin"
+        className="bg-card border border-border rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-bold mb-5">Create New Task</h2>
+        {/* Header */}
+        <div className="flex-shrink-0 px-6 pt-6 pb-4">
+          <h2 className="text-2xl font-bold">Create New Task</h2>
+        </div>
 
-        {/* Two-column layout on lg+, stacked on mobile */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* ── Form ── */}
-          <form onSubmit={handleSubmit} className="flex-1 min-w-0 space-y-4">
+        {/* Body: form + sidebar */}
+        <div className="flex flex-1 overflow-hidden min-h-0">
+          {/* ── Form column ── */}
+          <div className="flex-1 min-w-0 overflow-y-auto scrollbar-thin px-6 pb-6">
+            {/* Mobile widget */}
+            <div className="lg:hidden mb-4">
+              <AvgEstimateByTagWidget
+                selectedTagIds={selectedTagIds}
+                availableTags={availableTags}
+              />
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Task Name</label>
               <input
@@ -339,14 +351,6 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
               )}
             </div>
 
-            {/* Avg estimate widget — mobile only (above estimate field) */}
-            <div className="lg:hidden">
-              <AvgEstimateByTagWidget
-                selectedTagIds={selectedTagIds}
-                availableTags={availableTags}
-              />
-            </div>
-
             <div>
               <label className="block text-sm font-medium mb-2">Estimated Hours</label>
               <input
@@ -424,10 +428,11 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
                 Create Task
               </button>
             </div>
-          </form>
+            </form>
+          </div>
 
-          {/* ── Sidebar (desktop only) ── */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
+          {/* ── Sidebar (desktop only, full modal height, darker bg) ── */}
+          <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 bg-accent/40 border-l border-border px-5 py-6 overflow-y-auto scrollbar-thin">
             <AvgEstimateByTagWidget
               selectedTagIds={selectedTagIds}
               availableTags={availableTags}

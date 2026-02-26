@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ExternalLink, ArrowUpRight } from "lucide-react";
+import { X, ExternalLink, ArrowUpRight, Clock, Plus, Trash2, Check, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTimeEntryStore } from "@/store/useTimeEntryStore";
-import { formatTime, formatDecimalHours, cn } from "@/lib/utils";
+import { formatTime, formatDecimalHours, parseTimeInput, getDateString, cn } from "@/lib/utils";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import type { Tag } from "@/lib/db";
 
 interface TaskDrawerProps {
@@ -16,8 +17,18 @@ interface TaskDrawerProps {
 
 export function TaskDrawer({ taskId, onClose }: TaskDrawerProps) {
   const { tasks, getTaskTags } = useTaskStore();
-  const { timeEntries } = useTimeEntryStore();
+  const { timeEntries, addTimeEntry, updateTimeEntry, deleteTimeEntry } = useTimeEntryStore();
+  const { formatDate } = useDateFormat();
   const [taskTags, setTaskTags] = useState<Tag[]>([]);
+
+  // Tracking widget state
+  const [trackDate, setTrackDate] = useState(getDateString());
+  const [trackTimeInput, setTrackTimeInput] = useState("");
+  const [trackNotes, setTrackNotes] = useState("");
+  const [trackTimeError, setTrackTimeError] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  const [editingTimeInput, setEditingTimeInput] = useState("");
+  const [editingNotes, setEditingNotes] = useState("");
 
   const task = taskId ? tasks.find((t) => t.id === taskId) : null;
 
@@ -28,6 +39,15 @@ export function TaskDrawer({ taskId, onClose }: TaskDrawerProps) {
       setTaskTags([]);
     }
   }, [taskId, getTaskTags]);
+
+  // Reset tracking form when task changes
+  useEffect(() => {
+    setTrackDate(getDateString());
+    setTrackTimeInput("");
+    setTrackNotes("");
+    setTrackTimeError(false);
+    setEditingEntryId(null);
+  }, [taskId]);
 
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
@@ -57,6 +77,51 @@ export function TaskDrawer({ taskId, onClose }: TaskDrawerProps) {
         return { totalHours, totalMins, decimalHours, remaining, consumedPct };
       })()
     : null;
+
+  async function handleTrackSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!task) return;
+    const parsed = parseTimeInput(trackTimeInput);
+    if (!parsed || (parsed.hours === 0 && parsed.minutes === 0)) {
+      setTrackTimeError(true);
+      return;
+    }
+    await addTimeEntry({
+      taskId: task.id!,
+      date: trackDate,
+      hours: parsed.hours,
+      minutes: parsed.minutes,
+      notes: trackNotes.trim() || undefined,
+    });
+    setTrackTimeInput("");
+    setTrackNotes("");
+    setTrackTimeError(false);
+  }
+
+  function handleEditEntry(id: number, hours: number, minutes: number, notes?: string) {
+    setEditingEntryId(id);
+    setEditingTimeInput(formatTime(hours, minutes));
+    setEditingNotes(notes || "");
+  }
+
+  async function handleEditSave(id: number) {
+    const parsed = parseTimeInput(editingTimeInput);
+    if (!parsed || (parsed.hours === 0 && parsed.minutes === 0)) return;
+    await updateTimeEntry(id, {
+      hours: parsed.hours,
+      minutes: parsed.minutes,
+      notes: editingNotes.trim() || undefined,
+    });
+    setEditingEntryId(null);
+    setEditingTimeInput("");
+    setEditingNotes("");
+  }
+
+  function handleEditCancel() {
+    setEditingEntryId(null);
+    setEditingTimeInput("");
+    setEditingNotes("");
+  }
 
   return (
     <AnimatePresence>
@@ -198,6 +263,175 @@ export function TaskDrawer({ taskId, onClose }: TaskDrawerProps) {
                       />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Track Time section (hidden for completed tasks) */}
+              {task.status !== "completed" && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold">Track Time</span>
+                  </div>
+
+                  <form onSubmit={handleTrackSubmit} className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={trackDate}
+                        onChange={(e) => setTrackDate(e.target.value)}
+                        className="px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <input
+                        type="text"
+                        value={trackTimeInput}
+                        onChange={(e) => {
+                          setTrackTimeInput(e.target.value);
+                          setTrackTimeError(false);
+                        }}
+                        placeholder="2:30 · 1,5 · 2h"
+                        className={cn(
+                          "px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+                          trackTimeError
+                            ? "border-destructive ring-2 ring-destructive/50"
+                            : "border-border",
+                        )}
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={trackNotes}
+                      onChange={(e) => setTrackNotes(e.target.value)}
+                      placeholder="Notes (optional)"
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <div className="flex items-center justify-between">
+                      {trackTimeError && (
+                        <p className="text-xs text-destructive">
+                          Enter a valid time (e.g. 2:30, 1,5, 2h 30m)
+                        </p>
+                      )}
+                      <button
+                        type="submit"
+                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Log Time
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Recent entries (last 5) */}
+                  {(() => {
+                    const taskEntries = timeEntries
+                      .filter((e) => e.taskId === task.id)
+                      .sort((a, b) => b.date.localeCompare(a.date))
+                      .slice(0, 5);
+                    if (taskEntries.length === 0) return null;
+                    return (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                          Recent Entries
+                        </div>
+                        <div className="rounded-lg overflow-hidden border border-border/50">
+                          {taskEntries.map((entry, index) => {
+                            const isEditing = editingEntryId === entry.id;
+                            return (
+                              <div
+                                key={entry.id}
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-2 group",
+                                  index % 2 === 0 ? "bg-accent/20" : "bg-background",
+                                )}
+                              >
+                                <span className="text-xs text-muted-foreground w-16 flex-shrink-0">
+                                  {formatDate(new Date(entry.date + "T12:00:00"))}
+                                </span>
+
+                                {isEditing ? (
+                                  <div className="flex-1 flex gap-1.5 min-w-0">
+                                    <input
+                                      type="text"
+                                      value={editingTimeInput}
+                                      onChange={(e) => setEditingTimeInput(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleEditSave(entry.id!);
+                                        if (e.key === "Escape") handleEditCancel();
+                                      }}
+                                      autoFocus
+                                      placeholder="2:30"
+                                      className="w-20 flex-shrink-0 px-2 py-0.5 bg-background border border-primary rounded text-xs focus:outline-none"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={editingNotes}
+                                      onChange={(e) => setEditingNotes(e.target.value)}
+                                      placeholder="Notes"
+                                      className="flex-1 min-w-0 px-2 py-0.5 bg-background border border-border rounded text-xs focus:outline-none focus:border-primary"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-sm font-medium">
+                                      {formatTime(entry.hours, entry.minutes)}
+                                    </span>
+                                    {entry.notes && (
+                                      <span className="text-xs text-muted-foreground ml-2 truncate">
+                                        {entry.notes}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-0.5 flex-shrink-0 transition-opacity",
+                                    isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                                  )}
+                                >
+                                  {isEditing ? (
+                                    <>
+                                      <button
+                                        onClick={() => handleEditSave(entry.id!)}
+                                        className="p-1 hover:bg-green-500/20 text-green-500 rounded transition-colors"
+                                        title="Save"
+                                      >
+                                        <Check className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={handleEditCancel}
+                                        className="p-1 hover:bg-accent text-muted-foreground hover:text-foreground rounded transition-colors"
+                                        title="Cancel"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => handleEditEntry(entry.id!, entry.hours, entry.minutes, entry.notes)}
+                                        className="p-1 hover:bg-accent rounded transition-colors text-muted-foreground hover:text-foreground"
+                                        title="Edit"
+                                      >
+                                        <Pencil className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => deleteTimeEntry(entry.id!)}
+                                        className="p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded transition-colors"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

@@ -129,9 +129,9 @@ export default function Dashboard() {
   // Estimation accuracy distribution (all time)
   const estimationDistribution = useMemo(() => {
     return [
-      { name: 'On Track', value: yearlyStats.onTrack, color: '#22c55e' },
-      { name: 'Underestimated', value: yearlyStats.underestimated, color: '#f97316' },
-      { name: 'Overestimated', value: yearlyStats.overestimated, color: '#a855f7' },
+      { name: 'On Track', value: yearlyStats.onTrack, color: 'hsl(142 45% 45%)' },
+      { name: 'Underestimated', value: yearlyStats.underestimated, color: 'hsl(24 60% 50%)' },
+      { name: 'Overestimated', value: yearlyStats.overestimated, color: 'hsl(270 45% 55%)' },
     ].filter(d => d.value > 0)
   }, [yearlyStats])
 
@@ -144,10 +144,10 @@ export default function Dashboard() {
       }
     }
     return [
-      { name: 'Pending', value: counts.pending, color: '#eab308' },
-      { name: 'Active', value: counts.active, color: 'hsl(210, 90%, 60%)' },
-      { name: 'Completed', value: counts.completed, color: '#22c55e' },
-      { name: 'Canceled', value: counts.canceled, color: '#ef4444' },
+      { name: 'Pending', value: counts.pending, color: 'hsl(48 55% 48%)' },
+      { name: 'Active', value: counts.active, color: 'hsl(210 55% 50%)' },
+      { name: 'Completed', value: counts.completed, color: 'hsl(142 45% 45%)' },
+      { name: 'Canceled', value: counts.canceled, color: 'hsl(0 55% 52%)' },
       { name: 'Archived', value: counts.archived, color: '#64748b' },
     ].filter(d => d.value > 0)
   }, [tasks])
@@ -275,7 +275,7 @@ export default function Dashboard() {
                   cursor={{ fill: 'hsl(var(--accent))' }}
                   formatter={(value: number) => [`${value}h`, 'Hours']}
                 />
-                <Bar dataKey="hours" fill="hsl(210 90% 60%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="hours" fill="hsl(210 55% 50%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -314,8 +314,8 @@ export default function Dashboard() {
                   />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Legend iconType="circle" />
-                  <Line type="monotone" dataKey="created" stroke="hsl(210, 90%, 60%)" name="Created" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="completed" stroke="#22c55e" name="Completed" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="created" stroke="hsl(210, 55%, 50%)" name="Created" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="completed" stroke="hsl(142 45% 45%)" name="Completed" strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -355,7 +355,7 @@ export default function Dashboard() {
                     contentStyle={tooltipStyle}
                     formatter={(value: number) => [`${value}h`, 'Hours']}
                   />
-                  <Bar dataKey="hours" fill="hsl(210, 90%, 60%)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="hours" fill="hsl(210, 55%, 50%)" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

@@ -229,11 +229,6 @@ ${sanitizedHtml}
             <div className="min-w-0 flex-1">
               <h1 className="text-2xl font-bold mb-1.5">{report.title}</h1>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span>
-                  {formatDate(report.dateRange.from)} –{" "}
-                  {formatDate(report.dateRange.to)}
-                </span>
-                <span>·</span>
                 <span>Generated {formatDateTime(report.createdAt)}</span>
               </div>
             </div>

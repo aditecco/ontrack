@@ -230,6 +230,7 @@ export default function PlanPage() {
                 tasks={tasks}
                 trackedByTask={trackedByTask}
                 dailyCapacity={dayCapacity}
+                existingTaskIds={new Set(items.map((i) => i.taskId))}
                 onAdd={(taskId, dayIndex, plannedHours) =>
                   addItem(taskId, currentWeekISO, dayIndex, plannedHours)
                 }

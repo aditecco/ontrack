@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Search, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/lib/db";
@@ -11,6 +11,7 @@ interface AddTaskPanelProps {
   tasks: Task[];
   trackedByTask: Map<number, number>;
   dailyCapacity: number;
+  existingTaskIds: Set<number>;
   onAdd: (taskId: number, dayIndex: number, plannedHours: number) => void;
 }
 
@@ -18,19 +19,39 @@ export function AddTaskPanel({
   tasks,
   trackedByTask,
   dailyCapacity,
+  existingTaskIds,
   onAdd,
 }: AddTaskPanelProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Task | null>(null);
-  const [dayIndex, setDayIndex] = useState(0);
+  // All days pre-checked by default
+  const [checkedDays, setCheckedDays] = useState<boolean[]>([true, true, true, true, true]);
   const [hours, setHours] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus search on open
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") handleClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   const results = useMemo(() => {
     const q = query.toLowerCase().trim();
     return tasks
       .filter((t) => t.status !== "archived" && t.status !== "canceled")
+      .filter((t) => !existingTaskIds.has(t.id!))
       .filter(
         (t) =>
           !q ||
@@ -38,26 +59,33 @@ export function AddTaskPanel({
           t.customer.toLowerCase().includes(q),
       )
       .slice(0, 8);
-  }, [tasks, query]);
+  }, [tasks, query, existingTaskIds]);
 
   function selectTask(task: Task) {
     setSelected(task);
     const tracked = trackedByTask.get(task.id!) ?? 0;
     const remaining = Math.max(task.estimatedHours - tracked, 0);
-    // Default planned hours: remaining, capped at daily capacity; min 1 for vis-only
-    const defaultHours = remaining > 0
-      ? Math.min(remaining, dailyCapacity)
-      : 1;
-    setHours(defaultHours % 1 === 0 ? String(defaultHours) : defaultHours.toFixed(1));
-    setDayIndex(0);
+    const defaultHours =
+      remaining > 0 ? Math.min(remaining, dailyCapacity) : 1;
+    setHours(
+      defaultHours % 1 === 0 ? String(defaultHours) : defaultHours.toFixed(1),
+    );
+    setCheckedDays([true, true, true, true, true]);
+  }
+
+  function toggleDay(i: number) {
+    setCheckedDays((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
   }
 
   function handleConfirm() {
     if (!selected) return;
     const parsed = parseFloat(hours);
     if (isNaN(parsed) || parsed <= 0) return;
-    onAdd(selected.id!, dayIndex, parsed);
-    // Reset to allow adding more
+    const days = checkedDays
+      .map((checked, i) => (checked ? i : -1))
+      .filter((i) => i >= 0);
+    if (days.length === 0) return;
+    days.forEach((dayIndex) => onAdd(selected.id!, dayIndex, parsed));
     setSelected(null);
     setQuery("");
     setTimeout(() => inputRef.current?.focus(), 50);
@@ -69,152 +97,193 @@ export function AddTaskPanel({
     setQuery("");
   }
 
-  if (!open) {
-    return (
+  const checkedCount = checkedDays.filter(Boolean).length;
+
+  return (
+    <>
+      {/* Trigger button */}
       <button
-        onClick={() => {
-          setOpen(true);
-          setTimeout(() => inputRef.current?.focus(), 50);
-        }}
+        onClick={() => setOpen(true)}
         className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors text-sm w-full"
       >
         <Plus className="w-4 h-4" />
         Add task to board
       </button>
-    );
-  }
 
-  return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      {/* Search bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-        <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setSelected(null);
+      {/* Modal overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleClose();
           }}
-          placeholder="Search tasks by name or customer…"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
-        <button
-          onClick={handleClose}
-          className="text-muted-foreground hover:text-foreground transition-colors"
         >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+          <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+              <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSelected(null);
+                }}
+                placeholder="Search tasks by name or customer…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                onClick={handleClose}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-      {/* Task list (hidden once a task is selected) */}
-      {!selected && (
-        <div className="max-h-64 overflow-y-auto">
-          {results.length === 0 ? (
-            <p className="text-sm text-muted-foreground px-4 py-3">
-              {query ? "No matching tasks found" : "No tasks available"}
-            </p>
-          ) : (
-            results.map((task) => {
-              const tracked = trackedByTask.get(task.id!) ?? 0;
-              const remaining = Math.max(task.estimatedHours - tracked, 0);
-              return (
-                <button
-                  key={task.id}
-                  onClick={() => selectTask(task)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-accent/50 transition-colors text-left"
-                >
+            {/* Task list (step 1) */}
+            {!selected && (
+              <div className="max-h-72 overflow-y-auto">
+                {results.length === 0 ? (
+                  <p className="text-sm text-muted-foreground px-4 py-4">
+                    {query
+                      ? "No matching tasks found"
+                      : existingTaskIds.size > 0
+                        ? "All tasks already on the board this week"
+                        : "No tasks available"}
+                  </p>
+                ) : (
+                  results.map((task) => {
+                    const tracked = trackedByTask.get(task.id!) ?? 0;
+                    const remaining = Math.max(
+                      task.estimatedHours - tracked,
+                      0,
+                    );
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => selectTask(task)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-accent/50 transition-colors text-left"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {task.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {task.customer}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {remaining > 0
+                              ? `${remaining.toFixed(1)}h left`
+                              : "done"}
+                          </span>
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Placement picker (step 2) */}
+            {selected && (
+              <div className="p-4 space-y-4">
+                {/* Selected task summary */}
+                <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{task.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{task.customer}</p>
+                    <p className="text-sm font-medium truncate">
+                      {selected.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selected.customer}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {remaining > 0 ? `${remaining.toFixed(1)}h left` : "done"}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground ml-3 flex-shrink-0"
+                  >
+                    ← back
+                  </button>
+                </div>
+
+                {/* Visualization-only notice */}
+                {(() => {
+                  const tracked = trackedByTask.get(selected.id!) ?? 0;
+                  const remaining = Math.max(
+                    selected.estimatedHours - tracked,
+                    0,
+                  );
+                  return remaining <= 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      Visualization only — hours won&apos;t affect the estimate
+                    </p>
+                  ) : null;
+                })()}
+
+                {/* Day checkboxes */}
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Add to days
+                  </p>
+                  <div className="flex gap-1.5">
+                    {DAY_LABELS.map((label, i) => (
+                      <label
+                        key={i}
+                        className={cn(
+                          "flex-1 flex flex-col items-center gap-1 py-2 rounded cursor-pointer transition-colors select-none",
+                          checkedDays[i]
+                            ? "bg-primary/20 border border-primary/40"
+                            : "bg-accent/30 border border-transparent hover:bg-accent/60",
+                        )}
+                      >
+                        <span className="text-xs font-medium">{label}</span>
+                        <input
+                          type="checkbox"
+                          checked={checkedDays[i]}
+                          onChange={() => toggleDay(i)}
+                          className="w-3.5 h-3.5 accent-primary"
+                        />
+                      </label>
+                    ))}
                   </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-      )}
+                </div>
 
-      {/* Placement picker (shown after task selection) */}
-      {selected && (
-        <div className="p-4 space-y-4">
-          {/* Selected task summary */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">{selected.name}</p>
-              <p className="text-xs text-muted-foreground">{selected.customer}</p>
-            </div>
-            <button
-              onClick={() => setSelected(null)}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              ← back
-            </button>
-          </div>
+                {/* Hours input */}
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Planned hours per day
+                  </p>
+                  <input
+                    type="number"
+                    min="0.25"
+                    step="0.25"
+                    value={hours}
+                    onChange={(e) => setHours(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
+                    className="w-24 text-sm font-mono rounded-md px-2 py-1.5 border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
 
-          {/* Visualization-only notice */}
-          {(() => {
-            const tracked = trackedByTask.get(selected.id!) ?? 0;
-            const remaining = Math.max(selected.estimatedHours - tracked, 0);
-            return remaining <= 0 ? (
-              <p className="text-xs text-muted-foreground italic">
-                Visualization only — hours won&apos;t affect the estimate
-              </p>
-            ) : null;
-          })()}
-
-          {/* Day selector */}
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground font-medium">Day</p>
-            <div className="flex gap-1.5">
-              {DAY_LABELS.map((label, i) => (
+                {/* Confirm button */}
                 <button
-                  key={i}
-                  onClick={() => setDayIndex(i)}
-                  className={cn(
-                    "flex-1 py-1 rounded text-xs font-medium transition-colors",
-                    dayIndex === i
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-accent/40 text-muted-foreground hover:bg-accent hover:text-foreground",
-                  )}
+                  onClick={handleConfirm}
+                  disabled={
+                    !hours || parseFloat(hours) <= 0 || checkedCount === 0
+                  }
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {label}
+                  <Plus className="w-4 h-4" />
+                  {checkedCount === 1
+                    ? `Add to ${DAY_LABELS[checkedDays.indexOf(true)]}`
+                    : `Add to ${checkedCount} days`}
                 </button>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
-
-          {/* Hours input */}
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground font-medium">Planned hours</p>
-            <input
-              type="number"
-              min="0.25"
-              step="0.25"
-              value={hours}
-              onChange={(e) => setHours(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
-              className="w-24 text-sm font-mono rounded-md px-2 py-1.5 border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          {/* Confirm button */}
-          <button
-            onClick={handleConfirm}
-            disabled={!hours || parseFloat(hours) <= 0}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-            Add to {DAY_LABELS[dayIndex]}
-          </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
